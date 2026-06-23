@@ -217,6 +217,38 @@ class EmailAuthService:
             api_permissions=role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else [],
         )
 
+    def list_managed_users(self) -> list[dict[str, Any]]:
+        role_map = {str(item.get("id") or "").strip(): item for item in role_service.list_roles()}
+        items: list[dict[str, Any]] = []
+        with self._lock:
+            users = self._load_users()
+        for user in users:
+            role_id = _clean(user.get("role_id")) or DEFAULT_ROLE_ID
+            role = role_map.get(role_id) or role_map.get(DEFAULT_ROLE_ID) or {}
+            email = _clean(user.get("email")).lower()
+            items.append({
+                "id": _clean(user.get("id")) or f"user_{secrets.token_hex(6)}",
+                "username": email,
+                "email": email,
+                "name": _clean(user.get("name")) or email,
+                "role": "user",
+                "role_id": str(role.get("id") or role_id),
+                "role_name": str(role.get("name") or ""),
+                "provider": "email",
+                "enabled": bool(user.get("enabled", True)),
+                "has_api_key": False,
+                "has_session": False,
+                "api_key_id": "",
+                "api_key_name": "",
+                "credential_count": 1,
+                "created_at": _clean(user.get("created_at")) or "",
+                "last_used_at": _clean(user.get("last_login_at")) or "",
+                "menu_paths": role.get("menu_paths") if isinstance(role.get("menu_paths"), list) else [],
+                "api_permissions": role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else [],
+                "has_password": bool(_clean(user.get("password_hash"))),
+            })
+        return items
+
     def _verify_code(self, email: str, code: str) -> None:
         with self._lock:
             codes = self._load_codes()

@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from services.auth_service import auth_service
 from services.commerce_service import commerce_service
+from services.email_auth_service import email_auth_service
 
 from api.support import (
     require_admin,
@@ -205,12 +206,37 @@ def _managed_users_payload() -> list[dict[str, Any]]:
         str(item.get("user_id") or "").strip(): item
         for item in commerce_service.list_profiles()
     }
-    items: list[dict[str, Any]] = []
-    for user in auth_service.list_managed_users():
+    role_map = {str(item.get("id") or "").strip(): item for item in role_service.list_roles()}
+    merged: dict[str, dict[str, Any]] = {}
+
+    def merge_user(user: dict[str, Any]) -> None:
         user_id = str(user.get("id") or "").strip()
+        if not user_id:
+            return
         profile = commerce_profiles.get(user_id) or {}
-        items.append({
+        role_id = str(user.get("role_id") or "").strip()
+        role_name = str(user.get("role_name") or "").strip()
+        role = role_map.get(role_id)
+        if role is None and role_name:
+            role = next((item for item in role_map.values() if str(item.get("name") or "").strip() == role_name), None)
+            if role is not None:
+                role_id = str(role.get("id") or role_id).strip()
+                role_name = str(role.get("name") or role_name).strip()
+        current = merged.get(user_id) or {}
+        role_menu_paths = role.get("menu_paths") if isinstance(role, dict) and isinstance(role.get("menu_paths"), list) else []
+        role_api_permissions = role.get("api_permissions") if isinstance(role, dict) and isinstance(role.get("api_permissions"), list) else []
+        current_menu_paths = current.get("menu_paths") if isinstance(current.get("menu_paths"), list) else []
+        current_api_permissions = current.get("api_permissions") if isinstance(current.get("api_permissions"), list) else []
+        merged[user_id] = {
+            **current,
             **user,
+            "id": user_id,
+            "email": str(user.get("email") or current.get("email") or "").strip(),
+            "username": str(user.get("username") or current.get("username") or "").strip(),
+            "role_id": role_id,
+            "role_name": role_name or str((role or {}).get("name") or "").strip(),
+            "menu_paths": user.get("menu_paths") if isinstance(user.get("menu_paths"), list) else (current_menu_paths or role_menu_paths),
+            "api_permissions": user.get("api_permissions") if isinstance(user.get("api_permissions"), list) else (current_api_permissions or role_api_permissions),
             "balance_cents": int(profile.get("balance_cents") or 0),
             "total_recharge_cents": int(profile.get("total_recharge_cents") or 0),
             "total_consume_cents": int(profile.get("total_consume_cents") or 0),
@@ -222,7 +248,15 @@ def _managed_users_payload() -> list[dict[str, Any]]:
             "subscription_start_at": str(profile.get("subscription_start_at") or "").strip(),
             "subscription_expire_at": str(profile.get("subscription_expire_at") or "").strip(),
             "subscription_active": bool(profile.get("subscription_active")),
-        })
+        }
+
+    for user in auth_service.list_managed_users():
+        merge_user(user)
+    for user in email_auth_service.list_managed_users():
+        merge_user(user)
+
+    items = list(merged.values())
+    items.sort(key=lambda item: (str(item.get("name") or item.get("username") or "").lower(), str(item.get("id") or "")))
     return items
 
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from threading import Lock
 from urllib.parse import quote, urlencode, urlparse
 
-from curl_cffi import requests
+from curl_cffi import CurlMime, requests
 from fastapi import HTTPException
 from PIL import Image
 
@@ -120,10 +120,14 @@ class ImgBedClient:
         if not self.ready():
             raise ImageStorageError("external image bed is not configured")
         file_name = Path(_safe_relative_path(rel)).name or "image.png"
-        files = {
-            "file": (file_name, payload, content_type or "application/octet-stream"),
-        }
-        response = self.session.post(self._request_url(), files=files, timeout=30)
+        multipart = CurlMime(self.session.curl)
+        multipart.addpart(
+            "file",
+            filename=file_name,
+            content_type=content_type or "application/octet-stream",
+            data=payload,
+        )
+        response = self.session.post(self._request_url(), multipart=multipart, timeout=30)
         if response.status_code < 200 or response.status_code >= 300:
             raise ImageStorageError(f"external image bed upload failed: HTTP {response.status_code} {response.text[:300]}")
         public_url = self._extract_url(response.content)

@@ -204,12 +204,18 @@ class RoleService:
 
     def _merge_with_defaults(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         default_map = {str(item.get("id") or "").strip(): dict(item) for item in DEFAULT_ROLES}
+        default_name_map = {str(item.get("name") or "").strip(): dict(item) for item in DEFAULT_ROLES}
         merged: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
         for item in items:
             role_id = str(item.get("id") or "").strip()
-            default_role = default_map.get(role_id)
+            role_name = str(item.get("name") or "").strip()
+            default_role = default_map.get(role_id) or default_name_map.get(role_name)
             if default_role is not None:
+                item["id"] = str(default_role.get("id") or role_id).strip() or role_id
+                role_id = str(item.get("id") or "").strip()
+                if role_id in seen_ids:
+                    continue
                 item["builtin"] = True
                 item["agency_tier"] = str(item.get("agency_tier") or default_role.get("agency_tier") or "").strip().lower()
                 item["subscription_tier"] = str(item.get("subscription_tier") or default_role.get("subscription_tier") or "").strip().lower()

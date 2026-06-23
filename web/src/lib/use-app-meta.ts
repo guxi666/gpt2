@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { fetchAppMeta, type AppMeta } from "@/lib/api";
 
@@ -15,6 +16,7 @@ const defaultAppMeta: AppMeta = {
 
 export function useAppMeta() {
   const [appMeta, setAppMeta] = useState<AppMeta>(defaultAppMeta);
+  const pathname = usePathname();
 
   useEffect(() => {
     let active = true;
@@ -48,14 +50,21 @@ export function useAppMeta() {
     if (!href) {
       return;
     }
-    let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-    if (!link) {
-      link = document.createElement("link");
-      link.rel = "icon";
-      document.head.appendChild(link);
+    let iconLink = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    if (!iconLink) {
+      iconLink = document.createElement("link");
+      iconLink.rel = "icon";
+      document.head.appendChild(iconLink);
     }
-    link.href = href;
-  }, [appMeta]);
+    iconLink.href = href;
+    let shortcutIconLink = document.querySelector("link[rel='shortcut icon']") as HTMLLinkElement | null;
+    if (!shortcutIconLink) {
+      shortcutIconLink = document.createElement("link");
+      shortcutIconLink.rel = "shortcut icon";
+      document.head.appendChild(shortcutIconLink);
+    }
+    shortcutIconLink.href = href;
+  }, [appMeta, pathname]);
 
   return appMeta;
 }

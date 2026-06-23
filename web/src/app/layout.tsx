@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
-import "./globals.css";
-import { ThemeScript } from "@/components/theme-script";
+
 import { TopNav } from "@/components/top-nav";
+import { ThemeScript } from "@/components/theme-script";
+
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ChatGPT 号池管理",
-  description: "ChatGPT account pool management dashboard",
+  title: "GPT生图站",
+  description: "GPT image generation dashboard",
 };
 
 export const viewport: Viewport = {

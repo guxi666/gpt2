@@ -445,6 +445,7 @@ export type PermissionMenu = {
   label: string;
   path: string;
   order?: number;
+  children?: PermissionMenu[];
 };
 
 export type ApiPermission = {

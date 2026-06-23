@@ -7,6 +7,7 @@ import { getValidatedAuthSession } from "@/lib/auth-session";
 import {
   canAccessPath,
   getDefaultRouteForSession,
+  getStoredAuthSession,
   type AuthRole,
   type StoredAuthSession,
 } from "@/store/auth";
@@ -27,6 +28,31 @@ export function useAuthGuard(allowedRoles?: AuthRole[], requiredPath?: string): 
 
     const load = async () => {
       const roleList = allowedRolesKey ? (allowedRolesKey.split(",") as AuthRole[]) : [];
+      const cachedSession = await getStoredAuthSession();
+      if (!active) {
+        return;
+      }
+
+      if (!cachedSession) {
+        setSession(null);
+        setIsCheckingAuth(false);
+        router.replace("/login");
+        return;
+      }
+
+      setSession(cachedSession);
+      setIsCheckingAuth(false);
+
+      if (roleList.length > 0 && !roleList.includes(cachedSession.role)) {
+        router.replace(getDefaultRouteForSession(cachedSession));
+        return;
+      }
+
+      if (requiredPath && !canAccessPath(cachedSession, requiredPath)) {
+        router.replace(getDefaultRouteForSession(cachedSession));
+        return;
+      }
+
       const storedSession = await getValidatedAuthSession();
       if (!active) {
         return;
@@ -54,7 +80,6 @@ export function useAuthGuard(allowedRoles?: AuthRole[], requiredPath?: string): 
       }
 
       setSession(storedSession);
-      setIsCheckingAuth(false);
     };
 
     void load();

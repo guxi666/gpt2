@@ -53,6 +53,12 @@ const IMAGE_TIER_STORAGE_KEY = "chatgpt2api:image_last_tier";
 const IMAGE_QUALITY_STORAGE_KEY = "chatgpt2api:image_last_quality";
 const IMAGE_MODEL_STORAGE_KEY = "chatgpt2api:image_last_model";
 const IMAGE_COUNT_STORAGE_KEY = "chatgpt2api:image_last_count";
+const DEFAULT_IMAGE_RATIO = "1:1";
+const DEFAULT_IMAGE_TIER = "1k";
+const DEFAULT_IMAGE_WIDTH = "1024";
+const DEFAULT_IMAGE_HEIGHT = "1024";
+const DEFAULT_IMAGE_QUALITY = "high";
+const DEFAULT_IMAGE_COUNT = "1";
 const SCROLL_POSITIONS_STORAGE_KEY = "chatgpt2api:image_scroll_positions";
 const SCROLL_TO_LATEST_THRESHOLD = 160;
 
@@ -445,12 +451,12 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
   const imageTimeoutRetrySecs = Number(config?.image_timeout_retry_secs || 30);
 
   const [imagePrompt, setImagePrompt] = useState("");
-  const [imageCount, setImageCount] = useState("3");
-  const [imageRatio, setImageRatio] = useState("auto");
-  const [imageTier, setImageTier] = useState("1k");
-  const [imageWidth, setImageWidth] = useState("1024");
-  const [imageHeight, setImageHeight] = useState("1024");
-  const [imageQuality, setImageQuality] = useState("auto");
+  const [imageCount, setImageCount] = useState(DEFAULT_IMAGE_COUNT);
+  const [imageRatio, setImageRatio] = useState(DEFAULT_IMAGE_RATIO);
+  const [imageTier, setImageTier] = useState(DEFAULT_IMAGE_TIER);
+  const [imageWidth, setImageWidth] = useState(DEFAULT_IMAGE_WIDTH);
+  const [imageHeight, setImageHeight] = useState(DEFAULT_IMAGE_HEIGHT);
+  const [imageQuality, setImageQuality] = useState(DEFAULT_IMAGE_QUALITY);
   const [imageModel, setImageModel] = useState<ImageModel>("gpt-image-2");
   const [imageModels, setImageModels] = useState<ImageModel[]>(["gpt-image-2"]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -586,20 +592,16 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
 
   const loadHistory = useCallback(async () => {
     try {
-      const storedRatio =
-        typeof window !== "undefined" ? window.localStorage.getItem(IMAGE_RATIO_STORAGE_KEY) : null;
-      const storedTier =
-        typeof window !== "undefined" ? window.localStorage.getItem(IMAGE_TIER_STORAGE_KEY) : null;
       const storedQuality =
         typeof window !== "undefined" ? window.localStorage.getItem(IMAGE_QUALITY_STORAGE_KEY) : null;
       const storedCount =
         typeof window !== "undefined" ? window.localStorage.getItem(IMAGE_COUNT_STORAGE_KEY) : null;
-      setImageRatio(storedRatio || "1:1");
-      setImageTier(storedTier || "1k");
-      setImageWidth("1024");
-      setImageHeight("1024");
-      setImageQuality(storedQuality || "auto");
-      setImageCount(storedCount ? clampImageCount(storedCount) : "1");
+      setImageRatio(DEFAULT_IMAGE_RATIO);
+      setImageTier(DEFAULT_IMAGE_TIER);
+      setImageWidth(DEFAULT_IMAGE_WIDTH);
+      setImageHeight(DEFAULT_IMAGE_HEIGHT);
+      setImageQuality((storedQuality && ["auto", "low", "medium", "high"].includes(storedQuality)) ? storedQuality : DEFAULT_IMAGE_QUALITY);
+      setImageCount(storedCount ? clampImageCount(storedCount) : DEFAULT_IMAGE_COUNT);
 
       const items = await listImageConversations();
       const normalizedItems = await recoverConversationHistory(items);
