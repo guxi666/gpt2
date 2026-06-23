@@ -15,6 +15,7 @@ import { CPAPoolsCard } from "./components/cpa-pools-card";
 import { ImportBrowserDialog } from "./components/import-browser-dialog";
 import { PaymentSettingsCard } from "./components/payment-settings-card";
 import { ProxyRuntimeCard } from "./components/proxy-runtime-card";
+import { RedeemSettingsCard } from "./components/redeem-settings-card";
 import { SettingsHeader } from "./components/settings-header";
 import { SiteBrandCard } from "./components/site-brand-card";
 import { SMTPSettingsCard } from "./components/smtp-settings-card";
@@ -29,6 +30,7 @@ const settingsTabs = [
   { value: "brand", title: "站点品牌" },
   { value: "smtp", title: "SMTP" },
   { value: "payment", title: "支付" },
+  { value: "redeem", title: "卡密" },
   { value: "agency", title: "代理加盟" },
   { value: "subscription", title: "订阅" },
   { value: "backup", title: "备份" },
@@ -109,6 +111,9 @@ function SettingsPageContent() {
         </TabsContent>
         <TabsContent value="payment">
           <PaymentSettingsCard />
+        </TabsContent>
+        <TabsContent value="redeem">
+          <RedeemSettingsCard />
         </TabsContent>
         <TabsContent value="agency">
           <AgencySettingsCard />

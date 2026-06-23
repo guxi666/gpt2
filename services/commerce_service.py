@@ -494,15 +494,16 @@ class CommerceService:
             status = str(item.get("status") or "").strip().lower()
             amount_cents = int(item.get("amount_cents") or 0)
             created_at = _parse_iso(item.get("created_at"))
-            if status == "paid":
+            is_revenue_order = str(item.get("record_type") or "").strip() == "order" and amount_cents > 0
+            if status == "paid" and is_revenue_order:
                 total_revenue_cents += amount_cents
                 total_paid_count += 1
                 if created_at and created_at.date() == now.date():
                     today_revenue_cents += amount_cents
                     today_paid_count += 1
-            elif status == "pending":
+            elif status == "pending" and str(item.get("record_type") or "").strip() == "order":
                 pending_count += 1
-            elif status == "failed":
+            elif status == "failed" and str(item.get("record_type") or "").strip() == "order":
                 failed_count += 1
         return {
             "today_revenue_cents": today_revenue_cents,
