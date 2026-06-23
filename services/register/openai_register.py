@@ -26,7 +26,16 @@ config = {
         "request_timeout": 30,
         "wait_timeout": 30,
         "wait_interval": 2,
-        "providers": [],
+        "providers": [
+            {
+                "enable": True,
+                "type": "cloudflare_temp_email",
+                "api_base": "",
+                "admin_password": "",
+                "domain": [],
+                "random_subdomain": True,
+            }
+        ],
     },
     "proxy": "",
     "total": 10,

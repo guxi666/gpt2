@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import webConfig from "@/constants/common-env";
-import { fetchBackupDetail, getBackupDownloadUrl, type BackupDetail, type BackupInclude } from "@/lib/api";
+import { fetchBackupDetail, getBackupDownloadUrl, importLegacyData, type BackupDetail, type BackupInclude } from "@/lib/api";
 import { getStoredAuthKey } from "@/store/auth";
 import { useSettingsStore } from "../store";
 
@@ -79,6 +79,7 @@ export function BackupSettingsCard() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<BackupDetail | null>(null);
+  const [legacySourcePath, setLegacySourcePath] = useState("");
   const config = useSettingsStore((state) => state.config);
   const backups = useSettingsStore((state) => state.backups);
   const backupState = useSettingsStore((state) => state.backupState);
@@ -250,6 +251,34 @@ export function BackupSettingsCard() {
             <div className="text-sm font-medium text-stone-800">备份内容</div>
             <p className="mt-1 text-xs text-stone-500">按组件勾选需要进入备份包的数据。</p>
           </div>
+
+          <section className="flex flex-col gap-3 rounded-xl border border-stone-200 bg-white px-4 py-4">
+            <div>
+              <div className="text-sm font-medium text-stone-800">旧项目数据导入</div>
+              <p className="mt-1 text-xs text-stone-500">支持直接填写旧项目目录路径，或旧的 sqlite 文件路径。会尝试导入用户、角色、钱包、充值记录、提现记录、卡密和图库文件。</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-[1fr,140px]">
+              <Input
+                value={legacySourcePath}
+                onChange={(event) => setLegacySourcePath(event.target.value)}
+                placeholder="/opt/gpt/data 或 /app/data/import-chatgpt2api.db"
+                className="h-10 rounded-xl border-stone-200 bg-white"
+              />
+              <Button
+                className="h-10 rounded-xl bg-stone-950 text-white hover:bg-stone-800"
+                onClick={async () => {
+                  try {
+                    const data = await importLegacyData(legacySourcePath);
+                    toast.success(`导入完成：角色 ${data.roles_imported}，用户 ${data.users_imported}，钱包 ${data.billing_profiles_imported}，图库 ${data.images_imported || 0}`);
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "导入旧项目数据失败");
+                  }
+                }}
+              >
+                导入
+              </Button>
+            </div>
+          </section>
           <div className="grid gap-3 md:grid-cols-3">
             {includeLabels.map((item) => (
               <label key={item.key} className="flex items-center gap-3 text-sm text-stone-700">

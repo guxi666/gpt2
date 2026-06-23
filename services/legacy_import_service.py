@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import shutil
 from pathlib import Path
 from typing import Any
 
 from services.auth_service import auth_service
 from services.commerce_service import commerce_service
 from services.email_auth_service import email_auth_service
+from services.config import config
 from services.role_service import DEFAULT_ROLE_ID, role_service
 
 
@@ -148,18 +150,42 @@ def _apply_billing(raw: Any) -> int:
     return imported
 
 
+def _copy_legacy_images(source_root: Path) -> int:
+    source_images = source_root / "images"
+    if not source_images.exists() or not source_images.is_dir():
+        return 0
+    target_root = config.images_dir
+    copied = 0
+    for path in source_images.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(source_images)
+        target = target_root / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists():
+            continue
+        shutil.copy2(path, target)
+        copied += 1
+    return copied
+
+
 def import_legacy(source_path: str) -> dict[str, Any]:
     source = Path(str(source_path or "").strip())
     if not source.exists():
         raise ValueError("legacy source path not found")
     documents = _read_legacy_documents(source)
+    source_root = source.parent if source.is_file() else source
     roles_imported = _apply_roles(documents.get("rbac_roles"))
     users_imported, created_keys = _apply_users(documents.get("auth_users"))
     billing_imported = _apply_billing(documents.get("billing"))
+    billing_details = commerce_service.import_legacy_billing(documents.get("billing") or {})
+    images_imported = _copy_legacy_images(source_root)
     return {
         "ok": True,
         "roles_imported": roles_imported,
         "users_imported": users_imported,
         "billing_profiles_imported": billing_imported,
+        "billing_details": billing_details,
+        "images_imported": images_imported,
         "created_keys": created_keys,
     }

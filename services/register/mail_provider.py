@@ -230,6 +230,18 @@ def _random_subdomain_label() -> str:
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=random.randint(4, 10)))
 
 
+def _resolve_cloudflare_temp_domain(domain: str, random_subdomain: bool) -> str:
+    cleaned = str(domain or "").strip()
+    if not cleaned:
+        return ""
+    if cleaned.startswith("*.") and len(cleaned) > 2:
+        base_domain = cleaned[2:].strip()
+        return f"{_random_subdomain_label()}.{base_domain}" if base_domain else ""
+    if random_subdomain:
+        return f"{_random_subdomain_label()}.{cleaned}"
+    return cleaned
+
+
 def _next_domain(domains: list[str]) -> str:
     global domain_index
     domains = [str(item).strip() for item in domains if str(item).strip()]
@@ -414,6 +426,7 @@ class CloudflareTempMailProvider(BaseMailProvider):
         self.api_base = str(entry["api_base"]).rstrip("/")
         self.admin_password = str(entry["admin_password"]).strip()
         self.domain = entry.get("domain") or []
+        self.random_subdomain = bool(entry.get("random_subdomain"))
         self.session = _create_session(conf)
 
     def _request(self, method: str, path: str, headers: dict | None = None, params: dict | None = None, payload: dict | None = None, expected: tuple[int, ...] = (200,)):
@@ -423,7 +436,10 @@ class CloudflareTempMailProvider(BaseMailProvider):
         return {} if resp.status_code == 204 else resp.json()
 
     def create_mailbox(self, username: str | None = None) -> dict[str, Any]:
-        data = self._request("POST", "/admin/new_address", headers={"x-admin-auth": self.admin_password}, payload={"enablePrefix": True, "name": username or _random_mailbox_name(), "domain": _next_domain(self.domain)})
+        domain = _resolve_cloudflare_temp_domain(_next_domain(self.domain), self.random_subdomain)
+        if not domain:
+            raise RuntimeError("CloudflareTempMail 缺少可用域名")
+        data = self._request("POST", "/admin/new_address", headers={"x-admin-auth": self.admin_password}, payload={"enablePrefix": True, "name": username or _random_mailbox_name(), "domain": domain})
         address = str(data.get("address") or "").strip()
         token = str(data.get("jwt") or "").strip()
         if not address or not token:

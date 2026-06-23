@@ -15,6 +15,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from services.auth_service import auth_service
+from services.commerce_service import commerce_service
 
 from api.support import (
     require_admin,
@@ -145,6 +146,8 @@ class ManagedRoleCreateRequest(BaseModel):
     description: str = ""
     menu_paths: list[str] = Field(default_factory=list)
     api_permissions: list[str] = Field(default_factory=list)
+    agency_tier: str = ""
+    subscription_tier: str = ""
 
 
 class ManagedRoleUpdateRequest(BaseModel):
@@ -152,6 +155,8 @@ class ManagedRoleUpdateRequest(BaseModel):
     description: str | None = None
     menu_paths: list[str] | None = None
     api_permissions: list[str] | None = None
+    agency_tier: str | None = None
+    subscription_tier: str | None = None
 
 
 class LegacyImportRequest(BaseModel):
@@ -193,6 +198,32 @@ def _account_zip_bytes(items: list[dict[str, str]]) -> bytes:
                 json.dumps(item, ensure_ascii=False, indent=2) + "\n",
             )
     return buf.getvalue()
+
+
+def _managed_users_payload() -> list[dict[str, Any]]:
+    commerce_profiles = {
+        str(item.get("user_id") or "").strip(): item
+        for item in commerce_service.list_profiles()
+    }
+    items: list[dict[str, Any]] = []
+    for user in auth_service.list_managed_users():
+        user_id = str(user.get("id") or "").strip()
+        profile = commerce_profiles.get(user_id) or {}
+        items.append({
+            **user,
+            "balance_cents": int(profile.get("balance_cents") or 0),
+            "total_recharge_cents": int(profile.get("total_recharge_cents") or 0),
+            "total_consume_cents": int(profile.get("total_consume_cents") or 0),
+            "agency_tier": str(profile.get("agency_tier") or "").strip(),
+            "agency_enabled": bool(profile.get("agency_enabled")),
+            "agency_commission_bp": int(profile.get("agency_commission_bp") or 0),
+            "agency_discount_bp": int(profile.get("agency_discount_bp") or 0),
+            "subscription_tier": str(profile.get("subscription_tier") or "").strip(),
+            "subscription_start_at": str(profile.get("subscription_start_at") or "").strip(),
+            "subscription_expire_at": str(profile.get("subscription_expire_at") or "").strip(),
+            "subscription_active": bool(profile.get("subscription_active")),
+        })
+    return items
 
 
 def create_router() -> APIRouter:
@@ -238,7 +269,7 @@ def create_router() -> APIRouter:
     @router.get("/api/admin/users")
     async def list_managed_users(authorization: str | None = Header(default=None)):
         require_admin(authorization)
-        return {"items": auth_service.list_managed_users()}
+        return {"items": _managed_users_payload()}
 
     @router.post("/api/admin/users")
     async def create_managed_user(body: ManagedUserCreateRequest, authorization: str | None = Header(default=None)):
@@ -261,7 +292,7 @@ def create_router() -> APIRouter:
                 item = auth_service.update_key(str(item.get("id") or ""), {"enabled": False}, role="user") or item
         except ValueError as exc:
             raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
-        return {"item": next((user for user in auth_service.list_managed_users() if str(user.get("id") or "") == str(item.get("id") or "")), None), "key": raw_key, "items": auth_service.list_managed_users()}
+        return {"item": next((user for user in _managed_users_payload() if str(user.get("id") or "") == str(item.get("id") or "")), None), "key": raw_key, "items": _managed_users_payload()}
 
     @router.post("/api/admin/users/{user_id}")
     async def update_managed_user(user_id: str, body: ManagedUserUpdateRequest, authorization: str | None = Header(default=None)):
@@ -284,15 +315,15 @@ def create_router() -> APIRouter:
         item = auth_service.update_key(user_id, updates, role="user")
         if item is None:
             raise HTTPException(status_code=404, detail={"error": "user not found"})
-        current = next((user for user in auth_service.list_managed_users() if str(user.get("id") or "") == str(item.get("id") or "")), None)
-        return {"item": current, "items": auth_service.list_managed_users()}
+        current = next((user for user in _managed_users_payload() if str(user.get("id") or "") == str(item.get("id") or "")), None)
+        return {"item": current, "items": _managed_users_payload()}
 
     @router.delete("/api/admin/users/{user_id}")
     async def delete_managed_user(user_id: str, authorization: str | None = Header(default=None)):
         require_admin(authorization)
         if not auth_service.delete_key(user_id, role="user"):
             raise HTTPException(status_code=404, detail={"error": "user not found"})
-        return {"items": auth_service.list_managed_users()}
+        return {"items": _managed_users_payload()}
 
     @router.post("/api/admin/users/{user_id}/reset-key")
     async def reset_managed_user_key(user_id: str, body: ManagedUserResetKeyRequest, authorization: str | None = Header(default=None)):
@@ -319,8 +350,8 @@ def create_router() -> APIRouter:
                 auth_service.update_key(str(item.get("id") or ""), {"enabled": False}, role="user")
         except ValueError as exc:
             raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
-        managed = next((user for user in auth_service.list_managed_users() if str(user.get("id") or "") == str(item.get("id") or "")), None)
-        return {"item": managed, "api_key": item, "key": raw_key, "items": auth_service.list_managed_users()}
+        managed = next((user for user in _managed_users_payload() if str(user.get("id") or "") == str(item.get("id") or "")), None)
+        return {"item": managed, "api_key": item, "key": raw_key, "items": _managed_users_payload()}
 
     @router.post("/api/admin/import/legacy")
     async def import_legacy_data(body: LegacyImportRequest, authorization: str | None = Header(default=None)):

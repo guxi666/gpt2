@@ -39,5 +39,23 @@ export function useAppMeta() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    document.title = appMeta.project_name || defaultAppMeta.project_name;
+    const href = appMeta.site_logo_url || appMeta.top_left_logo_url || "";
+    if (!href) {
+      return;
+    }
+    let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = href;
+  }, [appMeta]);
+
   return appMeta;
 }

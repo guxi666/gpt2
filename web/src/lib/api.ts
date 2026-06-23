@@ -460,6 +460,8 @@ export type ManagedRole = {
   name: string;
   description?: string;
   builtin?: boolean;
+  agency_tier?: string;
+  subscription_tier?: string;
   menu_paths?: string[];
   api_permissions?: string[];
   created_at?: string | null;
@@ -988,6 +990,8 @@ export async function fetchManagedRoles() {
 export async function createManagedRole(payload: {
   name: string;
   description?: string;
+  agency_tier?: string;
+  subscription_tier?: string;
   menu_paths?: string[];
   api_permissions?: string[];
 }) {
@@ -1002,6 +1006,8 @@ export async function updateManagedRole(
   updates: {
     name?: string;
     description?: string;
+    agency_tier?: string;
+    subscription_tier?: string;
     menu_paths?: string[];
     api_permissions?: string[];
   },

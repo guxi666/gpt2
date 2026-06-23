@@ -259,6 +259,43 @@ function normalizeFiles(items: CPARemoteFile[]) {
   return files;
 }
 
+function normalizeRegisterConfig(config: RegisterConfig): RegisterConfig {
+  const providers = Array.isArray(config.mail?.providers) ? config.mail.providers : [];
+  return {
+    ...config,
+    mail: {
+      ...config.mail,
+      providers: providers.map((provider) => {
+        if (!provider || typeof provider !== "object") {
+          return provider;
+        }
+        const current = provider as Record<string, unknown>;
+        if (String(current.type || "") !== "cloudmail_gen") {
+          return provider;
+        }
+        const apiBase = String(current.api_base || "").trim();
+        const adminEmail = String(current.admin_email || "").trim();
+        const adminPassword = String(current.admin_password || "").trim();
+        const emailPrefix = String(current.email_prefix || "").trim();
+        const domains = Array.isArray(current.domain) ? current.domain.filter(Boolean) : [];
+        const subdomains = Array.isArray(current.subdomain) ? current.subdomain.filter(Boolean) : [];
+        const isEmptySkeleton = !apiBase && !adminEmail && !adminPassword && !emailPrefix && domains.length === 0 && subdomains.length === 0;
+        if (!isEmptySkeleton) {
+          return provider;
+        }
+        return {
+          enable: true,
+          type: "cloudflare_temp_email",
+          api_base: "",
+          admin_password: "",
+          domain: [],
+          random_subdomain: true,
+        };
+      }),
+    },
+  };
+}
+
 type SettingsStore = {
   config: SettingsConfig | null;
   isLoadingConfig: boolean;
@@ -899,7 +936,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     if (!silent) set({ isLoadingRegister: true });
     try {
       const data = await fetchRegisterConfig();
-      set({ registerConfig: data.register });
+      set({ registerConfig: normalizeRegisterConfig(data.register) });
     } catch (error) {
       if (!silent) toast.error(error instanceof Error ? error.message : "加载注册配置失败");
     } finally {
@@ -908,7 +945,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   setRegisterConfig: (config) => {
-    set({ registerConfig: config, isLoadingRegister: false });
+    set({ registerConfig: normalizeRegisterConfig(config), isLoadingRegister: false });
   },
 
   setRegisterProxy: (value) => {
@@ -956,7 +993,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           ...state.registerConfig.mail,
           providers: [
             ...(state.registerConfig.mail.providers || []),
-            { enable: true, type: "cloudmail_gen", api_base: "", admin_email: "", admin_password: "", domain: [], subdomain: [], email_prefix: "" },
+            { enable: true, type: "cloudflare_temp_email", api_base: "", admin_password: "", domain: [], random_subdomain: true },
           ],
         },
       },

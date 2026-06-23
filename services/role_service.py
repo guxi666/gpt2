@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from threading import Lock
 from typing import Any
 
@@ -15,86 +14,151 @@ def _now_iso() -> str:
 
 
 DEFAULT_ROLE_ID = "default-user"
+AGENCY_BASIC_ROLE_ID = "agency-basic"
+AGENCY_PRO_ROLE_ID = "agency-pro"
+AGENCY_PREMIUM_ROLE_ID = "agency-premium"
+SUBSCRIPTION_MONTHLY_ROLE_ID = "subscription-monthly"
+SUBSCRIPTION_QUARTERLY_ROLE_ID = "subscription-quarterly"
+SUBSCRIPTION_YEARLY_ROLE_ID = "subscription-yearly"
 
 
 def permission_key(method: str, path: str) -> str:
     return f"{str(method or '').strip().lower()}{str(path or '').strip()}"
 
-DEFAULT_ROLES = [
-    {
-        "id": DEFAULT_ROLE_ID,
-        "name": "默认用户",
-        "description": "基础用户角色，默认允许进入创作台、钱包、订阅、代理和个人资料页面。",
+
+COMMON_USER_MENU_PATHS = ["/image", "/wallet", "/subscription", "/agency", "/profile"]
+
+COMMON_USER_API_PERMISSIONS = [
+    permission_key("GET", "/v1/models"),
+    permission_key("POST", "/v1/images/generations"),
+    permission_key("POST", "/v1/images/edits"),
+    permission_key("POST", "/v1/chat/completions"),
+    permission_key("POST", "/v1/responses"),
+    permission_key("POST", "/v1/messages"),
+    permission_key("GET", "/api/image-tasks"),
+    permission_key("POST", "/api/image-tasks/generations"),
+    permission_key("POST", "/api/image-tasks/edits"),
+    permission_key("POST", "/api/image-tasks/{task_id}/resume-poll"),
+    permission_key("GET", "/api/wallet"),
+    permission_key("POST", "/api/wallet/redeem"),
+    permission_key("GET", "/api/pay/orders"),
+    permission_key("POST", "/api/pay/orders"),
+    permission_key("GET", "/api/subscriptions/plans"),
+    permission_key("POST", "/api/subscriptions/orders"),
+    permission_key("GET", "/api/agency"),
+    permission_key("POST", "/api/agency/join"),
+    permission_key("POST", "/api/agency/upgrade"),
+    permission_key("GET", "/api/agency/commission"),
+    permission_key("GET", "/api/agency/withdrawals"),
+    permission_key("POST", "/api/agency/withdrawals"),
+    permission_key("GET", "/api/agency/withdraw-profile"),
+    permission_key("POST", "/api/agency/withdraw-profile"),
+    permission_key("GET", "/api/third-party-apps"),
+]
+
+
+def _build_default_role(
+    role_id: str,
+    name: str,
+    description: str,
+    *,
+    agency_tier: str = "",
+    subscription_tier: str = "",
+) -> dict[str, Any]:
+    return {
+        "id": role_id,
+        "name": name,
+        "description": description,
         "builtin": True,
-        "menu_paths": ["/image", "/wallet", "/subscription", "/agency", "/profile"],
-        "api_permissions": [
-            permission_key("GET", "/v1/models"),
-            permission_key("POST", "/v1/images/generations"),
-            permission_key("POST", "/v1/images/edits"),
-            permission_key("POST", "/v1/chat/completions"),
-            permission_key("POST", "/v1/responses"),
-            permission_key("POST", "/v1/messages"),
-            permission_key("GET", "/api/image-tasks"),
-            permission_key("POST", "/api/image-tasks/generations"),
-            permission_key("POST", "/api/image-tasks/edits"),
-            permission_key("POST", "/api/image-tasks/{task_id}/resume-poll"),
-            permission_key("GET", "/api/wallet"),
-            permission_key("POST", "/api/pay/orders"),
-            permission_key("GET", "/api/pay/orders"),
-            permission_key("POST", "/api/wallet/redeem"),
-            permission_key("GET", "/api/agency"),
-            permission_key("POST", "/api/agency/join"),
-            permission_key("POST", "/api/agency/upgrade"),
-            permission_key("GET", "/api/agency/commission"),
-            permission_key("GET", "/api/agency/withdrawals"),
-            permission_key("POST", "/api/agency/withdrawals"),
-            permission_key("GET", "/api/agency/withdraw-profile"),
-            permission_key("POST", "/api/agency/withdraw-profile"),
-            permission_key("GET", "/api/subscriptions/plans"),
-            permission_key("POST", "/api/subscriptions/orders"),
-            permission_key("GET", "/api/third-party-apps"),
-        ],
+        "agency_tier": agency_tier,
+        "subscription_tier": subscription_tier,
+        "menu_paths": list(COMMON_USER_MENU_PATHS),
+        "api_permissions": list(COMMON_USER_API_PERMISSIONS),
         "created_at": _now_iso(),
         "updated_at": _now_iso(),
     }
+
+
+DEFAULT_ROLES = [
+    _build_default_role(
+        DEFAULT_ROLE_ID,
+        "普通用户",
+        "基础普通权限，包含创作台、钱包充值、代理加盟、套餐订阅和个人资料。",
+    ),
+    _build_default_role(
+        AGENCY_BASIC_ROLE_ID,
+        "代理-基础",
+        "基础代理权限组，适合个人起步和轻量推广。",
+        agency_tier="basic",
+    ),
+    _build_default_role(
+        AGENCY_PRO_ROLE_ID,
+        "代理-进阶",
+        "进阶代理权限组，适合团队运营和渠道扩展。",
+        agency_tier="pro",
+    ),
+    _build_default_role(
+        AGENCY_PREMIUM_ROLE_ID,
+        "代理-旗舰",
+        "旗舰代理权限组，适合规模化业务和高阶分销。",
+        agency_tier="premium",
+    ),
+    _build_default_role(
+        SUBSCRIPTION_MONTHLY_ROLE_ID,
+        "套餐-包月",
+        "包月套餐权限组，套餐期内可按订阅模式使用平台。",
+        subscription_tier="monthly",
+    ),
+    _build_default_role(
+        SUBSCRIPTION_QUARTERLY_ROLE_ID,
+        "套餐-包季",
+        "包季套餐权限组，适合稳定持续创作。",
+        subscription_tier="quarterly",
+    ),
+    _build_default_role(
+        SUBSCRIPTION_YEARLY_ROLE_ID,
+        "套餐-包年",
+        "包年套餐权限组，适合长期高频使用。",
+        subscription_tier="yearly",
+    ),
 ]
 
 
 PERMISSION_MENUS = [
     {"id": "image", "label": "创作台", "path": "/image", "order": 1},
     {"id": "wallet", "label": "钱包充值", "path": "/wallet", "order": 2},
-    {"id": "subscription", "label": "订阅套餐", "path": "/subscription", "order": 3},
+    {"id": "subscription", "label": "套餐订阅", "path": "/subscription", "order": 3},
     {"id": "agency", "label": "代理加盟", "path": "/agency", "order": 4},
     {"id": "profile", "label": "个人资料", "path": "/profile", "order": 5},
 ]
 
 
 PERMISSION_APIS = [
-    {"key": permission_key("GET", "/v1/models"), "method": "GET", "path": "/v1/models", "label": "查看模型列表", "group": "生图"},
-    {"key": permission_key("POST", "/v1/images/generations"), "method": "POST", "path": "/v1/images/generations", "label": "文生图", "group": "生图"},
-    {"key": permission_key("POST", "/v1/images/edits"), "method": "POST", "path": "/v1/images/edits", "label": "图生图", "group": "生图"},
-    {"key": permission_key("POST", "/v1/chat/completions"), "method": "POST", "path": "/v1/chat/completions", "label": "图片 ChatCompletions", "group": "生图"},
-    {"key": permission_key("POST", "/v1/responses"), "method": "POST", "path": "/v1/responses", "label": "图片 Responses", "group": "生图"},
-    {"key": permission_key("POST", "/v1/messages"), "method": "POST", "path": "/v1/messages", "label": "图片 Messages", "group": "生图"},
-    {"key": permission_key("GET", "/api/image-tasks"), "method": "GET", "path": "/api/image-tasks", "label": "查看图片任务", "group": "生图"},
-    {"key": permission_key("POST", "/api/image-tasks/generations"), "method": "POST", "path": "/api/image-tasks/generations", "label": "创建文生图任务", "group": "生图"},
-    {"key": permission_key("POST", "/api/image-tasks/edits"), "method": "POST", "path": "/api/image-tasks/edits", "label": "创建图生图任务", "group": "生图"},
-    {"key": permission_key("POST", "/api/image-tasks/{task_id}/resume-poll"), "method": "POST", "path": "/api/image-tasks/{task_id}/resume-poll", "label": "继续轮询图片任务", "group": "生图"},
-    {"key": permission_key("GET", "/api/wallet"), "method": "GET", "path": "/api/wallet", "label": "查看钱包", "group": "商业"},
-    {"key": permission_key("POST", "/api/pay/orders"), "method": "POST", "path": "/api/pay/orders", "label": "创建充值订单", "group": "商业"},
-    {"key": permission_key("GET", "/api/pay/orders"), "method": "GET", "path": "/api/pay/orders", "label": "查看支付订单", "group": "商业"},
-    {"key": permission_key("POST", "/api/wallet/redeem"), "method": "POST", "path": "/api/wallet/redeem", "label": "兑换卡密", "group": "商业"},
-    {"key": permission_key("GET", "/api/agency"), "method": "GET", "path": "/api/agency", "label": "查看代理信息", "group": "代理"},
-    {"key": permission_key("POST", "/api/agency/join"), "method": "POST", "path": "/api/agency/join", "label": "创建代理订单", "group": "代理"},
-    {"key": permission_key("POST", "/api/agency/upgrade"), "method": "POST", "path": "/api/agency/upgrade", "label": "升级代理", "group": "代理"},
-    {"key": permission_key("GET", "/api/agency/commission"), "method": "GET", "path": "/api/agency/commission", "label": "查看代理收益", "group": "代理"},
-    {"key": permission_key("GET", "/api/agency/withdrawals"), "method": "GET", "path": "/api/agency/withdrawals", "label": "查看提现申请", "group": "代理"},
-    {"key": permission_key("POST", "/api/agency/withdrawals"), "method": "POST", "path": "/api/agency/withdrawals", "label": "创建提现申请", "group": "代理"},
-    {"key": permission_key("GET", "/api/agency/withdraw-profile"), "method": "GET", "path": "/api/agency/withdraw-profile", "label": "查看提现资料", "group": "代理"},
-    {"key": permission_key("POST", "/api/agency/withdraw-profile"), "method": "POST", "path": "/api/agency/withdraw-profile", "label": "保存提现资料", "group": "代理"},
-    {"key": permission_key("GET", "/api/subscriptions/plans"), "method": "GET", "path": "/api/subscriptions/plans", "label": "查看订阅套餐", "group": "订阅"},
-    {"key": permission_key("POST", "/api/subscriptions/orders"), "method": "POST", "path": "/api/subscriptions/orders", "label": "创建订阅订单", "group": "订阅"},
-    {"key": permission_key("GET", "/api/third-party-apps"), "method": "GET", "path": "/api/third-party-apps", "label": "查看第三方应用入口", "group": "扩展"},
+    {"key": permission_key("GET", "/v1/models"), "method": "GET", "path": "/v1/models", "label": "查看模型列表", "group": "普通权限"},
+    {"key": permission_key("POST", "/v1/images/generations"), "method": "POST", "path": "/v1/images/generations", "label": "文生图", "group": "普通权限"},
+    {"key": permission_key("POST", "/v1/images/edits"), "method": "POST", "path": "/v1/images/edits", "label": "图生图", "group": "普通权限"},
+    {"key": permission_key("POST", "/v1/chat/completions"), "method": "POST", "path": "/v1/chat/completions", "label": "图片 ChatCompletions", "group": "普通权限"},
+    {"key": permission_key("POST", "/v1/responses"), "method": "POST", "path": "/v1/responses", "label": "图片 Responses", "group": "普通权限"},
+    {"key": permission_key("POST", "/v1/messages"), "method": "POST", "path": "/v1/messages", "label": "图片 Messages", "group": "普通权限"},
+    {"key": permission_key("GET", "/api/image-tasks"), "method": "GET", "path": "/api/image-tasks", "label": "查看图片任务", "group": "普通权限"},
+    {"key": permission_key("POST", "/api/image-tasks/generations"), "method": "POST", "path": "/api/image-tasks/generations", "label": "创建文生图任务", "group": "普通权限"},
+    {"key": permission_key("POST", "/api/image-tasks/edits"), "method": "POST", "path": "/api/image-tasks/edits", "label": "创建图生图任务", "group": "普通权限"},
+    {"key": permission_key("POST", "/api/image-tasks/{task_id}/resume-poll"), "method": "POST", "path": "/api/image-tasks/{task_id}/resume-poll", "label": "继续轮询任务", "group": "普通权限"},
+    {"key": permission_key("GET", "/api/wallet"), "method": "GET", "path": "/api/wallet", "label": "查看钱包", "group": "普通权限"},
+    {"key": permission_key("POST", "/api/wallet/redeem"), "method": "POST", "path": "/api/wallet/redeem", "label": "兑换卡密", "group": "普通权限"},
+    {"key": permission_key("GET", "/api/pay/orders"), "method": "GET", "path": "/api/pay/orders", "label": "查看支付订单", "group": "普通权限"},
+    {"key": permission_key("POST", "/api/pay/orders"), "method": "POST", "path": "/api/pay/orders", "label": "创建充值订单", "group": "普通权限"},
+    {"key": permission_key("GET", "/api/subscriptions/plans"), "method": "GET", "path": "/api/subscriptions/plans", "label": "查看套餐列表", "group": "套餐权限"},
+    {"key": permission_key("POST", "/api/subscriptions/orders"), "method": "POST", "path": "/api/subscriptions/orders", "label": "创建套餐订单", "group": "套餐权限"},
+    {"key": permission_key("GET", "/api/agency"), "method": "GET", "path": "/api/agency", "label": "查看代理信息", "group": "代理权限"},
+    {"key": permission_key("POST", "/api/agency/join"), "method": "POST", "path": "/api/agency/join", "label": "创建代理订单", "group": "代理权限"},
+    {"key": permission_key("POST", "/api/agency/upgrade"), "method": "POST", "path": "/api/agency/upgrade", "label": "升级代理", "group": "代理权限"},
+    {"key": permission_key("GET", "/api/agency/commission"), "method": "GET", "path": "/api/agency/commission", "label": "查看代理收益", "group": "代理权限"},
+    {"key": permission_key("GET", "/api/agency/withdrawals"), "method": "GET", "path": "/api/agency/withdrawals", "label": "查看提现申请", "group": "代理权限"},
+    {"key": permission_key("POST", "/api/agency/withdrawals"), "method": "POST", "path": "/api/agency/withdrawals", "label": "创建提现申请", "group": "代理权限"},
+    {"key": permission_key("GET", "/api/agency/withdraw-profile"), "method": "GET", "path": "/api/agency/withdraw-profile", "label": "查看提现资料", "group": "代理权限"},
+    {"key": permission_key("POST", "/api/agency/withdraw-profile"), "method": "POST", "path": "/api/agency/withdraw-profile", "label": "保存提现资料", "group": "代理权限"},
+    {"key": permission_key("GET", "/api/third-party-apps"), "method": "GET", "path": "/api/third-party-apps", "label": "查看第三方应用入口", "group": "普通权限"},
 ]
 
 
@@ -130,11 +194,44 @@ class RoleService:
             "name": name,
             "description": str(raw.get("description") or "").strip(),
             "builtin": bool(raw.get("builtin")),
+            "agency_tier": str(raw.get("agency_tier") or "").strip().lower(),
+            "subscription_tier": str(raw.get("subscription_tier") or "").strip().lower(),
             "menu_paths": self._normalize_string_list(raw.get("menu_paths")),
             "api_permissions": self._normalize_string_list(raw.get("api_permissions")),
             "created_at": str(raw.get("created_at") or _now_iso()).strip() or _now_iso(),
             "updated_at": str(raw.get("updated_at") or _now_iso()).strip() or _now_iso(),
         }
+
+    def _merge_with_defaults(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        default_map = {str(item.get("id") or "").strip(): dict(item) for item in DEFAULT_ROLES}
+        merged: list[dict[str, Any]] = []
+        seen_ids: set[str] = set()
+        for item in items:
+            role_id = str(item.get("id") or "").strip()
+            default_role = default_map.get(role_id)
+            if default_role is not None:
+                item["builtin"] = True
+                item["agency_tier"] = str(item.get("agency_tier") or default_role.get("agency_tier") or "").strip().lower()
+                item["subscription_tier"] = str(item.get("subscription_tier") or default_role.get("subscription_tier") or "").strip().lower()
+                item["menu_paths"] = self._normalize_string_list([
+                    *self._normalize_string_list(default_role.get("menu_paths")),
+                    *self._normalize_string_list(item.get("menu_paths")),
+                ])
+                item["api_permissions"] = self._normalize_string_list([
+                    *self._normalize_string_list(default_role.get("api_permissions")),
+                    *self._normalize_string_list(item.get("api_permissions")),
+                ])
+                if not str(item.get("description") or "").strip():
+                    item["description"] = str(default_role.get("description") or "").strip()
+            merged.append(item)
+            if role_id:
+                seen_ids.add(role_id)
+        for default_role in DEFAULT_ROLES:
+            role_id = str(default_role.get("id") or "").strip()
+            if role_id and role_id not in seen_ids:
+                merged.append(dict(default_role))
+        merged.sort(key=lambda item: next((idx for idx, role in enumerate(DEFAULT_ROLES) if role["id"] == item.get("id")), len(DEFAULT_ROLES) + 1))
+        return merged
 
     def _load(self) -> list[dict[str, Any]]:
         if not self._path.exists():
@@ -146,25 +243,7 @@ class RoleService:
         if not isinstance(data, list):
             return [dict(item) for item in DEFAULT_ROLES]
         items = [normalized for item in data if (normalized := self._normalize_role(item)) is not None]
-        default_role = dict(DEFAULT_ROLES[0])
-        merged: list[dict[str, Any]] = []
-        found_default = False
-        for item in items:
-            if str(item.get("id") or "").strip() == DEFAULT_ROLE_ID:
-                found_default = True
-                item["menu_paths"] = self._normalize_string_list([
-                    *default_role["menu_paths"],
-                    *self._normalize_string_list(item.get("menu_paths")),
-                ])
-                item["api_permissions"] = self._normalize_string_list([
-                    *default_role["api_permissions"],
-                    *self._normalize_string_list(item.get("api_permissions")),
-                ])
-            merged.append(item)
-        if not found_default:
-            merged.insert(0, default_role)
-        items = merged
-        return items
+        return self._merge_with_defaults(items)
 
     def _save(self, items: list[dict[str, Any]]) -> None:
         self._path.write_text(json.dumps(items, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -194,6 +273,8 @@ class RoleService:
                 **payload,
                 "id": uuid.uuid4().hex[:12],
                 "builtin": False,
+                "agency_tier": str(payload.get("agency_tier") or "").strip().lower(),
+                "subscription_tier": str(payload.get("subscription_tier") or "").strip().lower(),
                 "created_at": _now_iso(),
                 "updated_at": _now_iso(),
             })
@@ -224,6 +305,8 @@ class RoleService:
                     **item,
                     "name": name,
                     "description": str(payload.get("description") if "description" in payload else item.get("description") or "").strip(),
+                    "agency_tier": str(payload.get("agency_tier") if "agency_tier" in payload else item.get("agency_tier") or "").strip().lower(),
+                    "subscription_tier": str(payload.get("subscription_tier") if "subscription_tier" in payload else item.get("subscription_tier") or "").strip().lower(),
                     "menu_paths": self._normalize_string_list(payload.get("menu_paths") if "menu_paths" in payload else item.get("menu_paths")),
                     "api_permissions": self._normalize_string_list(payload.get("api_permissions") if "api_permissions" in payload else item.get("api_permissions")),
                     "updated_at": _now_iso(),

@@ -49,7 +49,7 @@ export function RegisterCard() {
       type,
       enable: true,
       ...(type === "cloudmail_gen" ? { api_base: "", admin_email: "", admin_password: "", domain: [], subdomain: [], email_prefix: "" } : {}),
-      ...(type === "cloudflare_temp_email" ? { api_base: "", admin_password: "", domain: [] } : {}),
+      ...(type === "cloudflare_temp_email" ? { api_base: "", admin_password: "", domain: [], random_subdomain: false } : {}),
       ...(type === "tempmail_lol" ? { api_key: "", domain: [] } : {}),
       ...(type === "moemail" ? { api_base: "", api_key: "", domain: [] } : {}),
       ...(type === "inbucket" ? { api_base: "", domain: [], random_subdomain: true } : {}),
@@ -211,6 +211,19 @@ export function RegisterCard() {
                             <div className="space-y-2">
                               <label className="text-sm text-stone-700">Admin Password</label>
                               <Input value={String(provider.admin_password || "")} onChange={(event) => updateProvider(index, { admin_password: event.target.value })} className="h-10 rounded-xl border-stone-200 bg-white" disabled={config.enabled} />
+                            </div>
+                          ) : null}
+                          {type === "cloudflare_temp_email" ? (
+                            <div className="space-y-2">
+                              <label className="text-sm text-stone-700">Random Subdomain</label>
+                              <label className="flex h-10 items-center gap-3 rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-700">
+                                <Checkbox
+                                  checked={Boolean(provider.random_subdomain)}
+                                  onCheckedChange={(checked) => updateProvider(index, { random_subdomain: Boolean(checked) })}
+                                  disabled={config.enabled}
+                                />
+                                开启后自动生成随机二级域名
+                              </label>
                             </div>
                           ) : null}
                         </>

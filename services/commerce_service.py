@@ -204,6 +204,157 @@ class CommerceService:
             self._save_profiles(profiles)
             return copy.deepcopy(profile)
 
+    def import_legacy_billing(self, raw: dict[str, Any]) -> dict[str, int]:
+        obj = raw if isinstance(raw, dict) else {}
+        users = obj.get("users") if isinstance(obj.get("users"), list) else []
+        orders = obj.get("orders") if isinstance(obj.get("orders"), list) else []
+        withdrawals = obj.get("withdrawals") if isinstance(obj.get("withdrawals"), list) else []
+        redeem_codes = obj.get("redeem_codes") if isinstance(obj.get("redeem_codes"), list) else []
+
+        imported_profiles = 0
+        imported_orders = 0
+        imported_withdrawals = 0
+        imported_codes = 0
+
+        with self._lock:
+            profiles = self._load_profiles()
+            stored_orders = self._load_orders()
+            stored_withdrawals = self._load_withdrawals()
+            stored_codes = self._load_redeem_codes()
+
+            profile_ids = {str(item.get("user_id") or "").strip() for item in profiles.values()}
+            order_ids = {str(item.get("id") or "").strip() for item in stored_orders}
+            withdrawal_ids = {str(item.get("id") or "").strip() for item in stored_withdrawals}
+            code_ids = {str(item.get("code") or "").strip().upper() for item in stored_codes}
+
+            for raw_user in users:
+                if not isinstance(raw_user, dict):
+                    continue
+                user_id = str(raw_user.get("id") or "").strip()
+                if not user_id:
+                    continue
+                if user_id not in profile_ids:
+                    imported_profiles += 1
+                profile_ids.add(user_id)
+                current = profiles.get(user_id) or {}
+                profiles[user_id] = {
+                    "user_id": user_id,
+                    "name": str(raw_user.get("name") or raw_user.get("email") or current.get("name") or user_id).strip(),
+                    "role": "user",
+                    "invite_code": str(raw_user.get("invite_code") or current.get("invite_code") or self._new_invite_code()).strip(),
+                    "invited_by": str(raw_user.get("invited_by") or current.get("invited_by") or "").strip(),
+                    "invited_by_email": str(raw_user.get("invited_by_email") or current.get("invited_by_email") or "").strip(),
+                    "invited_count": int(raw_user.get("invited_count") or current.get("invited_count") or 0),
+                    "invited_users": raw_user.get("invited_users") if isinstance(raw_user.get("invited_users"), list) else current.get("invited_users", []),
+                    "balance_cents": int(raw_user.get("balance_cents") or current.get("balance_cents") or 0),
+                    "total_recharge_cents": int(raw_user.get("total_recharge_cents") or current.get("total_recharge_cents") or 0),
+                    "total_consume_cents": int(raw_user.get("total_consume_cents") or current.get("total_consume_cents") or 0),
+                    "agency_tier": str(raw_user.get("agency_tier") or current.get("agency_tier") or "").strip(),
+                    "agency_enabled": bool(raw_user.get("agency_enabled", current.get("agency_enabled", False))),
+                    "agency_commission_bp": int(raw_user.get("agency_commission_bp") or current.get("agency_commission_bp") or 0),
+                    "agency_discount_bp": int(raw_user.get("agency_discount_bp") or current.get("agency_discount_bp") or 0),
+                    "agency_joined_at": str(raw_user.get("agency_joined_at") or current.get("agency_joined_at") or "").strip(),
+                    "agency_alipay_qr_code": str(raw_user.get("agency_alipay_qr_code") or current.get("agency_alipay_qr_code") or "").strip(),
+                    "agency_wechat_qr_code": str(raw_user.get("agency_wechat_qr_code") or current.get("agency_wechat_qr_code") or "").strip(),
+                    "agency_phone": str(raw_user.get("agency_phone") or current.get("agency_phone") or "").strip(),
+                    "agency_wechat_id": str(raw_user.get("agency_wechat_id") or current.get("agency_wechat_id") or "").strip(),
+                    "subscription_tier": str(raw_user.get("subscription_tier") or current.get("subscription_tier") or "").strip(),
+                    "subscription_start_at": str(raw_user.get("subscription_start_at") or current.get("subscription_start_at") or "").strip(),
+                    "subscription_expire_at": str(raw_user.get("subscription_expire_at") or current.get("subscription_expire_at") or "").strip(),
+                    "subscription_active": bool(raw_user.get("subscription_active", current.get("subscription_active", False))),
+                    "last_login_at": str(raw_user.get("last_login_at") or current.get("last_login_at") or _now_iso()).strip() or _now_iso(),
+                    "updated_at": _now_iso(),
+                }
+
+            for raw_order in orders:
+                if not isinstance(raw_order, dict):
+                    continue
+                order_id = str(raw_order.get("id") or "").strip()
+                if not order_id or order_id in order_ids:
+                    continue
+                stored_orders.append({
+                    "id": order_id,
+                    "record_type": "order",
+                    "type": str(raw_order.get("kind") or raw_order.get("type") or "").strip(),
+                    "order_kind": str(raw_order.get("kind") or raw_order.get("type") or "").strip(),
+                    "provider": str(raw_order.get("provider") or "").strip(),
+                    "status": str(raw_order.get("status") or "").strip().lower() or "pending",
+                    "out_trade_no": str(raw_order.get("out_trade_no") or "").strip(),
+                    "trade_no": str(raw_order.get("trade_no") or "").strip(),
+                    "user_id": str(raw_order.get("user_id") or "").strip(),
+                    "user_display": str(raw_order.get("user_email") or raw_order.get("user_id") or "").strip(),
+                    "pay_type": str(raw_order.get("pay_type") or "").strip(),
+                    "amount_cents": int(raw_order.get("amount_cents") or 0),
+                    "amount_yuan": f"{int(raw_order.get('amount_cents') or 0) / 100:.2f}",
+                    "balance_after_cents": 0,
+                    "note": str(raw_order.get("note") or "").strip(),
+                    "agency_tier": str(raw_order.get("agency_tier") or "").strip(),
+                    "subscription_tier": str(raw_order.get("subscription_tier") or "").strip(),
+                    "created_at": str(raw_order.get("created_at") or "").strip(),
+                    "updated_at": str(raw_order.get("updated_at") or "").strip(),
+                    "paid_at": str(raw_order.get("paid_at") or "").strip(),
+                })
+                order_ids.add(order_id)
+                imported_orders += 1
+
+            for raw_item in withdrawals:
+                if not isinstance(raw_item, dict):
+                    continue
+                withdrawal_id = str(raw_item.get("id") or "").strip()
+                if not withdrawal_id or withdrawal_id in withdrawal_ids:
+                    continue
+                stored_withdrawals.append({
+                    "id": withdrawal_id,
+                    "user_id": str(raw_item.get("user_id") or "").strip(),
+                    "user_email": str(raw_item.get("user_email") or "").strip(),
+                    "amount_cents": int(raw_item.get("amount_cents") or 0),
+                    "amount_yuan": f"{int(raw_item.get('amount_cents') or 0) / 100:.2f}",
+                    "alipay_qr_code": str(raw_item.get("alipay_qr_code") or "").strip(),
+                    "wechat_qr_code": str(raw_item.get("wechat_qr_code") or "").strip(),
+                    "phone": str(raw_item.get("phone") or "").strip(),
+                    "wechat_id": str(raw_item.get("wechat_id") or "").strip(),
+                    "status": str(raw_item.get("status") or "pending").strip(),
+                    "admin_note": str(raw_item.get("admin_note") or "").strip(),
+                    "created_at": str(raw_item.get("created_at") or "").strip(),
+                    "updated_at": str(raw_item.get("updated_at") or "").strip(),
+                    "processed_at": str(raw_item.get("processed_at") or "").strip(),
+                })
+                withdrawal_ids.add(withdrawal_id)
+                imported_withdrawals += 1
+
+            for raw_code in redeem_codes:
+                if not isinstance(raw_code, dict):
+                    continue
+                code = str(raw_code.get("code") or "").strip().upper()
+                if not code or code in code_ids:
+                    continue
+                stored_codes.append({
+                    "code": code,
+                    "amount_cents": int(raw_code.get("amount_cents") or 0),
+                    "amount_yuan": f"{int(raw_code.get('amount_cents') or 0) / 100:.2f}",
+                    "enabled": bool(raw_code.get("enabled", True)),
+                    "created_at": str(raw_code.get("created_at") or "").strip(),
+                    "updated_at": str(raw_code.get("updated_at") or "").strip(),
+                    "expires_at": str(raw_code.get("expires_at") or "").strip(),
+                    "used_by": str(raw_code.get("used_by") or "").strip(),
+                    "used_at": str(raw_code.get("used_at") or "").strip(),
+                    "note": str(raw_code.get("note") or "").strip(),
+                })
+                code_ids.add(code)
+                imported_codes += 1
+
+            self._save_profiles(profiles)
+            self._save_orders(stored_orders)
+            self._save_withdrawals(stored_withdrawals)
+            self._save_redeem_codes(stored_codes)
+
+        return {
+            "profiles": imported_profiles,
+            "orders": imported_orders,
+            "withdrawals": imported_withdrawals,
+            "redeem_codes": imported_codes,
+        }
+
     def list_orders(self, identity: dict[str, Any], limit: int = 100) -> list[dict[str, Any]]:
         user_id = _sanitize_identity(identity)["id"]
         with self._lock:
