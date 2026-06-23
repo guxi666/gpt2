@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,6 +17,7 @@ function centsToYuan(cents: number) {
 }
 
 export default function SubscriptionPage() {
+  const router = useRouter();
   const { isCheckingAuth } = useAuthGuard(undefined, "/subscription");
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [status, setStatus] = useState<SubscriptionStatus>({ active: false });
@@ -24,6 +26,7 @@ export default function SubscriptionPage() {
   const [payType, setPayType] = useState<PayType>("alipay");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [enabled, setEnabled] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -31,6 +34,11 @@ export default function SubscriptionPage() {
       try {
         const data = await fetchSubscriptionPlans();
         if (!active) {
+          return;
+        }
+        if (data.enabled === false) {
+          setEnabled(false);
+          router.replace("/image");
           return;
         }
         const nextPlans = Array.isArray(data.plans) ? data.plans : [];
@@ -54,10 +62,14 @@ export default function SubscriptionPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [router]);
 
   if (isCheckingAuth || isLoading) {
     return <div className="flex min-h-[40vh] items-center justify-center"><LoaderCircle className="size-5 animate-spin text-stone-400" /></div>;
+  }
+
+  if (!enabled) {
+    return null;
   }
 
   return (

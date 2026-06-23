@@ -138,7 +138,15 @@ export function TopNav() {
   const navItems =
     session.role === "admin"
       ? adminNavItems
-      : userNavItems.filter((item) => canAccessPath(session, item.href));
+      : userNavItems.filter((item) => {
+        if (item.href === "/subscription" && !appMeta.subscription_enabled) {
+          return false;
+        }
+        if (item.href === "/agency" && !appMeta.agency_enabled) {
+          return false;
+        }
+        return canAccessPath(session, item.href);
+      });
 
   const roleLabel = session.role === "admin" ? "管理员" : "普通用户";
   const displayName = session.name.trim() || roleLabel;

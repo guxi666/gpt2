@@ -35,6 +35,30 @@ def _clean(value: object) -> str:
     return str(value or "").strip()
 
 
+ALLOWED_EMAIL_DOMAINS = {
+    "qq.com",
+    "163.com",
+    "126.com",
+    "gmail.com",
+    "outlook.com",
+    "hotmail.com",
+    "icloud.com",
+    "yahoo.com",
+    "foxmail.com",
+    "sina.com",
+}
+
+
+def _normalize_allowed_email(email: str) -> str:
+    normalized_email = _clean(email).lower()
+    if not normalized_email or "@" not in normalized_email:
+        raise ValueError("email is invalid")
+    domain = normalized_email.rsplit("@", 1)[-1]
+    if domain not in ALLOWED_EMAIL_DOMAINS:
+        raise ValueError("email domain is not allowed")
+    return normalized_email
+
+
 class EmailAuthService:
     def __init__(self) -> None:
         self._lock = Lock()
@@ -91,9 +115,7 @@ class EmailAuthService:
     def send_register_code(self, email: str) -> None:
         if not self.smtp_ready():
             raise ValueError("email verification is not configured")
-        normalized_email = _clean(email).lower()
-        if not normalized_email:
-            raise ValueError("email is required")
+        normalized_email = _normalize_allowed_email(email)
         code = f"{secrets.randbelow(1000000):06d}"
         self._send_mail(
             normalized_email,
@@ -110,9 +132,7 @@ class EmailAuthService:
             self._save_codes(codes)
 
     def register(self, email: str, password: str, code: str, name: str = "") -> tuple[dict[str, Any], str]:
-        normalized_email = _clean(email).lower()
-        if not normalized_email or "@" not in normalized_email:
-            raise ValueError("email is invalid")
+        normalized_email = _normalize_allowed_email(email)
         if len(_clean(password)) < 6:
             raise ValueError("password is too short")
         self._verify_code(normalized_email, code)

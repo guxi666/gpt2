@@ -283,6 +283,31 @@ class AuthService:
             self._save()
             return True
 
+    def rotate_key(self, key_id: str, *, role: AuthRole | None = None) -> tuple[dict[str, object], str] | None:
+        normalized_id = self._clean(key_id)
+        if not normalized_id:
+            return None
+        with self._lock:
+            self._reload_locked()
+            for index, item in enumerate(self._items):
+                if item.get("id") != normalized_id:
+                    continue
+                if role is not None and item.get("role") != role:
+                    return None
+                next_item = dict(item)
+                while True:
+                    raw_key = f"sk-{secrets.token_urlsafe(24)}"
+                    try:
+                        next_item["key_hash"] = self._build_key_hash_locked(raw_key, exclude_id=normalized_id)
+                        break
+                    except ValueError:
+                        continue
+                normalized = self._normalize_item(next_item) or next_item
+                self._items[index] = normalized
+                self._save()
+                return self._public_item(normalized), raw_key
+        return None
+
     def authenticate(self, raw_key: str) -> dict[str, object] | None:
         candidate = self._clean(raw_key)
         if not candidate:

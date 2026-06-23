@@ -266,7 +266,13 @@ function UsersContent() {
       const data = await resetManagedUserKey(user.id, user.api_key_name || user.name || user.username || "");
       setItems(Array.isArray(data.items) ? data.items : []);
       if (data.key) {
-        setRevealedKeysById((current) => ({ ...current, [user.id]: data.key }));
+        const nextId = String(data.item?.id || user.id);
+        setRevealedKeysById((current) => {
+          const next = { ...current };
+          delete next[user.id];
+          next[nextId] = data.key;
+          return next;
+        });
       }
       toast.success(user.has_api_key ? "密钥已重置" : "密钥已创建");
     } catch (error) {

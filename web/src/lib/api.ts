@@ -943,6 +943,7 @@ export async function fetchAuthProviders() {
     key_login?: { enabled: boolean };
     registration?: { enabled: boolean };
     email_verification?: { enabled: boolean };
+    allowed_email_domains?: string[];
   }>("/auth/providers", {
     redirectOnUnauthorized: false,
   });

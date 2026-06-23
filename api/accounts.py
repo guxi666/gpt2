@@ -362,28 +362,10 @@ def create_router() -> APIRouter:
     @router.post("/api/admin/users/{user_id}/reset-key")
     async def reset_managed_user_key(user_id: str, body: ManagedUserResetKeyRequest, authorization: str | None = Header(default=None)):
         require_admin(authorization)
-        current = next((item for item in auth_service.list_keys(role="user") if str(item.get("id") or "") == user_id), None)
-        if current is None:
+        rotated = auth_service.rotate_key(user_id, role="user")
+        if rotated is None:
             raise HTTPException(status_code=404, detail={"error": "user not found"})
-        role = role_service.get_role(str(current.get("role_id") or DEFAULT_ROLE_ID)) or role_service.get_role(DEFAULT_ROLE_ID)
-        if role is None:
-            raise HTTPException(status_code=400, detail={"error": "role not found"})
-        try:
-            auth_service.delete_key(user_id, role="user")
-            item, raw_key = auth_service.create_key(
-                role="user",
-                name=body.name or str(current.get("name") or ""),
-                username=str(current.get("username") or ""),
-                role_id=str(role.get("id") or DEFAULT_ROLE_ID),
-                role_name=str(role.get("name") or ""),
-                menu_paths=role.get("menu_paths") if isinstance(role.get("menu_paths"), list) else [],
-                api_permissions=role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else [],
-                provider=str(current.get("provider") or "local"),
-            )
-            if current.get("enabled") is False:
-                auth_service.update_key(str(item.get("id") or ""), {"enabled": False}, role="user")
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        item, raw_key = rotated
         managed = next((user for user in _managed_users_payload() if str(user.get("id") or "") == str(item.get("id") or "")), None)
         return {"item": managed, "api_key": item, "key": raw_key, "items": _managed_users_payload()}
 

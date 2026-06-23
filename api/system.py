@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from api.support import require_admin, require_identity, resolve_image_base_url
 from services.backup_service import BackupError, backup_service
 from services.config import config
-from services.email_auth_service import email_auth_service
+from services.email_auth_service import ALLOWED_EMAIL_DOMAINS, email_auth_service
 from services.image_service import (
     compress_images,
     delete_images,
@@ -81,7 +81,12 @@ def create_router(app_version: str) -> APIRouter:
     @router.post("/auth/login")
     async def login(body: EmailLoginRequest | None = None, authorization: str | None = Header(default=None)):
         if body and body.email.strip() and body.password.strip():
-            identity, key = email_auth_service.login(body.email, body.password)
+            try:
+                identity, key = email_auth_service.login(body.email, body.password)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail={"error": f"email login failed: {exc}"}) from exc
             return {
                 "ok": True,
                 "version": app_version,
@@ -109,7 +114,10 @@ def create_router(app_version: str) -> APIRouter:
 
     @router.get("/auth/providers")
     async def get_auth_providers():
-        return email_auth_service.providers()
+        return {
+            **email_auth_service.providers(),
+            "allowed_email_domains": sorted(ALLOWED_EMAIL_DOMAINS),
+        }
 
     @router.post("/auth/register/send-code")
     async def send_register_code(body: EmailRegisterCodeRequest):
@@ -117,6 +125,8 @@ def create_router(app_version: str) -> APIRouter:
             email_auth_service.send_register_code(body.email)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail={"error": f"send register code failed: {exc}"}) from exc
         return {"ok": True, "expires_in": 600}
 
     @router.post("/auth/register")
@@ -125,6 +135,8 @@ def create_router(app_version: str) -> APIRouter:
             identity, key = email_auth_service.register(body.email, body.password, body.code, body.name)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail={"error": f"email register failed: {exc}"}) from exc
         return {
             "ok": True,
             "version": app_version,
