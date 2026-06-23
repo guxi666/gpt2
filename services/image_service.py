@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 import shutil
 import threading
 import time
@@ -14,6 +15,7 @@ from PIL import Image, ImageOps
 from services.config import config
 from services.image_storage_service import image_storage_service
 from services.image_tags_service import load_tags, remove_tags
+from services.log_service import LOG_TYPE_CALL, log_service
 from utils.log import logger
 
 THUMBNAIL_SIZE = (320, 320)
@@ -152,12 +154,14 @@ def list_images(base_url: str, start_date: str = "", end_date: str = "") -> dict
     config.cleanup_old_images()
     cleanup_image_thumbnails()
     all_tags = load_tags()
+    creator_map = _load_image_creators(base_url)
     items = [
         {
             **item,
             "url": str(item.get("url") or f"{base_url.rstrip('/')}/images/{item['path']}"),
             "thumbnail_url": thumbnail_url(base_url, str(item["path"])),
             "tags": all_tags.get(str(item["path"]), []),
+            **creator_map.get(str(item["path"]), {}),
         }
         for item in image_storage_service.list_items(base_url, start_date, end_date)
     ]
@@ -165,6 +169,46 @@ def list_images(base_url: str, start_date: str = "", end_date: str = "") -> dict
     for item in items:
         groups.setdefault(str(item["date"]), []).append(item)
     return {"items": items, "groups": [{"date": key, "items": value} for key, value in groups.items()]}
+
+
+def _load_image_creators(base_url: str) -> dict[str, dict[str, str]]:
+    mapping: dict[str, dict[str, str]] = {}
+    if not log_service.path.exists():
+        return mapping
+    try:
+        for raw_line in log_service.path.read_text(encoding="utf-8").splitlines():
+            try:
+                item = json.loads(raw_line)
+            except Exception:
+                continue
+            if not isinstance(item, dict) or item.get("type") != LOG_TYPE_CALL:
+                continue
+            detail = item.get("detail")
+            if not isinstance(detail, dict):
+                continue
+            urls = detail.get("urls")
+            if not isinstance(urls, list):
+                continue
+            creator_email = str(detail.get("account_email") or "").strip()
+            creator_name = str(detail.get("key_name") or "").strip()
+            for url in urls:
+                url_text = str(url or "").strip()
+                if not url_text:
+                    continue
+                rel = ""
+                if "/images/" in url_text:
+                    rel = url_text.split("/images/", 1)[1].strip().lstrip("/")
+                elif url_text.startswith(base_url.rstrip("/") + "/"):
+                    rel = url_text.replace(base_url.rstrip("/") + "/", "", 1).strip().lstrip("/")
+                if not rel:
+                    continue
+                mapping[rel] = {
+                    "creator_email": creator_email,
+                    "creator_name": creator_name,
+                }
+    except Exception:
+        return mapping
+    return mapping
 
 
 def delete_images(paths: list[str] | None = None, start_date: str = "", end_date: str = "", all_matching: bool = False) -> dict[str, int]:

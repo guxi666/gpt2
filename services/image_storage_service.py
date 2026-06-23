@@ -315,7 +315,12 @@ class ImageStorageService:
             stored_webdav = True
 
         if imgbed_enabled:
-            imgbed_url = ImgBedClient(self.settings()).put(rel, image_data)
+            try:
+                imgbed_url = ImgBedClient(self.settings()).put(rel, image_data)
+            except Exception:
+                if not stored_local and not stored_webdav:
+                    raise
+                imgbed_url = ""
 
         dimensions = _image_dimensions(image_data)
         item = {

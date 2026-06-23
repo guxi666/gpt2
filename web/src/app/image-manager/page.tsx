@@ -85,6 +85,7 @@ function ImageManagerContent() {
 
   useEffect(() => { void loadStorage(); }, [loadStorage]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [userQuery, setUserQuery] = useState("");
   const [tagEditTarget, setTagEditTarget] = useState<ManagedImage | null>(null);
   const [tagInput, setTagInput] = useState("");
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -93,9 +94,12 @@ function ImageManagerContent() {
   const [deleteMode, setDeleteMode] = useState<"selected" | "filtered" | "byDate" | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const filteredItems = selectedTags.length > 0
-    ? items.filter((item) => selectedTags.every((t) => (item.tags ?? []).includes(t)))
-    : items;
+  const filteredItems = items.filter((item) => {
+    const tagsMatch = selectedTags.length === 0 || selectedTags.every((t) => (item.tags ?? []).includes(t));
+    const query = userQuery.trim().toLowerCase();
+    const userMatch = !query || [item.creator_email, item.creator_name].filter(Boolean).join(" ").toLowerCase().includes(query);
+    return tagsMatch && userMatch;
+  });
 
   const lightboxImages = filteredItems.map((item) => ({
     id: item.name,
@@ -228,6 +232,7 @@ function ImageManagerContent() {
     setStartDate("");
     setEndDate("");
     setSelectedTags([]);
+    setUserQuery("");
   };
 
   const togglePaths = (paths: string[], checked: boolean) => {
@@ -281,6 +286,12 @@ function ImageManagerContent() {
         </div>
         <div className="flex flex-wrap gap-2">
           <DateRangeFilter startDate={startDate} endDate={endDate} onChange={(start, end) => { setStartDate(start); setEndDate(end); }} />
+          <Input
+            value={userQuery}
+            onChange={(e) => setUserQuery(e.target.value)}
+            placeholder="筛选用户邮箱或昵称"
+            className="h-10 w-[220px] rounded-xl border-stone-200 bg-white"
+          />
           <Button variant="outline" onClick={clearFilters} className="h-10 rounded-xl border-stone-200 bg-white px-4 text-stone-700">
             清除筛选条件
           </Button>
@@ -545,6 +556,10 @@ function ImageManagerContent() {
                   <div className="flex items-center justify-between gap-2">
                     <span>{formatSize(item.size)}</span>
                     <span>{item.width && item.height ? `${item.width} x ${item.height}` : "-"}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
+                    <span>作者：{item.creator_name || "-"}</span>
+                    <span>{item.creator_email || "-"}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
                     {(item.tags ?? []).map((tag) => (

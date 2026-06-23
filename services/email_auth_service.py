@@ -175,10 +175,10 @@ class EmailAuthService:
             return auth_item, raw_key
 
     def login(self, email: str, password: str) -> tuple[dict[str, Any], str]:
-        normalized_email = _clean(email).lower()
+        normalized_identity = _clean(email).lower()
         with self._lock:
             users = self._load_users()
-            user = next((item for item in users if _clean(item.get("email")).lower() == normalized_email), None)
+            user = next((item for item in users if self._matches_login_identity(item, normalized_identity)), None)
             if user is None:
                 raise ValueError("email or password is invalid")
             if not bool(user.get("enabled", True)):
@@ -188,8 +188,8 @@ class EmailAuthService:
             role = role_service.get_role(str(user.get("role_id") or DEFAULT_ROLE_ID)) or {"id": DEFAULT_ROLE_ID, "name": "默认用户", "menu_paths": [], "api_permissions": []}
             auth_item, raw_key, _ = auth_service.import_user(
                 user_id=str(user.get("id") or ""),
-                username=normalized_email,
-                name=str(user.get("name") or normalized_email),
+                username=_clean(user.get("username")) or _clean(user.get("email")).lower(),
+                name=str(user.get("name") or _clean(user.get("username")) or _clean(user.get("email")).lower()),
                 role_id=str(role.get("id") or DEFAULT_ROLE_ID),
                 role_name=str(role.get("name") or ""),
                 enabled=True,
@@ -216,6 +216,7 @@ class EmailAuthService:
             users.append({
                 "id": user_id,
                 "email": email,
+                "username": _clean(raw_user.get("username")) or email,
                 "name": _clean(raw_user.get("name")) or email,
                 "password_scheme": "legacy_bcrypt",
                 "password_hash": _clean(raw_user.get("password_hash")),
@@ -248,9 +249,10 @@ class EmailAuthService:
             role_id = _clean(user.get("role_id")) or DEFAULT_ROLE_ID
             role = role_map.get(role_id) or role_map.get(DEFAULT_ROLE_ID) or {}
             email = _clean(user.get("email")).lower()
+            username = _clean(user.get("username")) or email
             items.append({
                 "id": _clean(user.get("id")) or f"user_{secrets.token_hex(6)}",
-                "username": email,
+                "username": username,
                 "email": email,
                 "name": _clean(user.get("name")) or email,
                 "role": "user",
@@ -300,6 +302,16 @@ class EmailAuthService:
             return False
         actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 480000).hex()
         return hmac.compare_digest(actual, expected)
+
+    @staticmethod
+    def _matches_login_identity(user: dict[str, Any], identity: str) -> bool:
+        normalized = _clean(identity).lower()
+        if not normalized:
+            return False
+        return normalized in {
+            _clean(user.get("email")).lower(),
+            _clean(user.get("username")).lower(),
+        }
 
     def _send_mail(self, to_email: str, subject: str, body: str) -> None:
         settings = config.get()

@@ -7,7 +7,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Lock
+from threading import RLock
 from typing import Any
 from urllib.parse import urlencode
 
@@ -67,6 +67,22 @@ def _apply_subscription_state(profile: dict[str, Any]) -> dict[str, Any]:
     return current
 
 
+def _lookup_managed_user(user_id: str) -> dict[str, Any] | None:
+    from services.auth_service import auth_service
+    from services.email_auth_service import email_auth_service
+
+    normalized_user_id = str(user_id or "").strip()
+    if not normalized_user_id:
+        return None
+    for user in auth_service.list_managed_users():
+        if str(user.get("id") or "").strip() == normalized_user_id:
+            return user
+    for user in email_auth_service.list_managed_users():
+        if str(user.get("id") or "").strip() == normalized_user_id:
+            return user
+    return None
+
+
 @dataclass
 class YiPayConfig:
     enabled: bool
@@ -80,7 +96,7 @@ class YiPayConfig:
 
 class CommerceService:
     def __init__(self) -> None:
-        self._lock = Lock()
+        self._lock = RLock()
         self._profiles_path = DATA_DIR / "commerce_profiles.json"
         self._orders_path = DATA_DIR / "commerce_orders.json"
         self._redeem_codes_path = DATA_DIR / "commerce_redeem_codes.json"
@@ -167,6 +183,16 @@ class CommerceService:
             profiles[user_id] = profile
             self._save_profiles(profiles)
             return copy.deepcopy(profile)
+
+    def ensure_profile_by_user_id(self, user_id: str) -> dict[str, Any]:
+        managed_user = _lookup_managed_user(user_id)
+        if managed_user is None:
+            raise ValueError("user not found")
+        return self.ensure_profile({
+            "id": str(managed_user.get("id") or "").strip(),
+            "role": str(managed_user.get("role") or "user").strip() or "user",
+            "name": str(managed_user.get("name") or managed_user.get("username") or managed_user.get("email") or user_id).strip(),
+        })
 
     def grant_signup_bonus(self, identity: dict[str, Any]) -> dict[str, Any]:
         gift_count = int(config.get().get("register_gift_image_count") or 0)
@@ -513,7 +539,9 @@ class CommerceService:
             profiles = self._load_profiles()
             profile = profiles.get(normalized_user_id)
             if profile is None:
-                raise ValueError("user not found")
+                profile = self.ensure_profile_by_user_id(normalized_user_id)
+                profiles = self._load_profiles()
+                profile = profiles.get(normalized_user_id) or profile
             current_balance = int(profile.get("balance_cents") or 0)
             if balance_cents is not None:
                 next_balance = max(0, int(balance_cents))
@@ -574,7 +602,9 @@ class CommerceService:
             profiles = self._load_profiles()
             profile = profiles.get(normalized_user_id)
             if profile is None:
-                raise ValueError("user not found")
+                profile = self.ensure_profile_by_user_id(normalized_user_id)
+                profiles = self._load_profiles()
+                profile = profiles.get(normalized_user_id) or profile
             now = _now()
             if normalized_mode == "clear":
                 profile["subscription_tier"] = ""

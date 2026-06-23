@@ -612,6 +612,8 @@ export type ManagedImage = {
   width?: number;
   height?: number;
   tags?: string[];
+  creator_email?: string;
+  creator_name?: string;
 };
 
 export type SystemLog = {
