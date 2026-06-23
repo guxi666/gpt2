@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from services.commerce_service import commerce_service
 from services.config import DATA_DIR, config
 from services.content_filter import request_text
 from services.log_service import LOG_TYPE_CALL, log_service
@@ -275,6 +276,13 @@ class ImageTaskService:
                 raise error
             usage = result.get("usage")
             duration_ms = int((time.time() - started) * 1000)
+            if mode == "generate":
+                commerce_service.charge_usage(
+                    dict(identity),
+                    usage_type="image",
+                    amount_cents=int(config.get().get("image_price_cents") or 0),
+                    note="image task balance charge",
+                )
             self._update_task(key, status=TASK_STATUS_SUCCESS, data=data, usage=usage, error="", duration_ms=duration_ms)
             self._log_call(
                 identity,

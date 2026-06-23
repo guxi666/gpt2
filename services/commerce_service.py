@@ -703,6 +703,7 @@ class CommerceService:
             "name": note or f"{config.site_name or 'chatgpt2api'} {order_kind}",
             "money": f"{amount_cents / 100:.2f}",
             "sitename": config.site_name or "chatgpt2api",
+            "param": identity_data["id"],
         }
         sign = self._yipay_sign(params, config.key)
         pay_url = f"{config.submit_url.rstrip('?')}{'&' if '?' in config.submit_url else '?'}{urlencode({**params, 'sign': sign, 'sign_type': 'MD5'})}"
@@ -826,7 +827,7 @@ class CommerceService:
     @staticmethod
     def _yipay_sign(params: dict[str, str], key: str) -> str:
         pairs = [f"{name}={value}" for name, value in sorted(params.items()) if str(value).strip() != ""]
-        payload = "&".join(pairs) + f"&key={key}"
+        payload = "&".join(pairs) + str(key).strip()
         return hashlib.md5(payload.encode("utf-8")).hexdigest()
 
     def list_redeem_codes(self, limit: int = 200) -> list[dict[str, Any]]:

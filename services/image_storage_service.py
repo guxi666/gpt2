@@ -304,23 +304,27 @@ class ImageStorageService:
         remote_url = ""
         imgbed_url = ""
 
-        if imgbed_enabled or mode in {"local", "both"}:
+        if imgbed_enabled:
+            try:
+                imgbed_url = ImgBedClient(self.settings()).put(rel, image_data)
+            except Exception:
+                imgbed_url = ""
+
+        should_store_local = mode == "both" or (mode == "local" and not imgbed_url)
+        should_store_webdav = mode in {"webdav", "both"}
+
+        if should_store_local:
             path = _local_image_path(rel)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(image_data)
             stored_local = True
 
-        if mode in {"webdav", "both"}:
+        if should_store_webdav:
             remote_url = WebDAVClient(self.settings()).put(rel, image_data)
             stored_webdav = True
 
-        if imgbed_enabled:
-            try:
-                imgbed_url = ImgBedClient(self.settings()).put(rel, image_data)
-            except Exception:
-                if not stored_local and not stored_webdav:
-                    raise
-                imgbed_url = ""
+        if not imgbed_url and not stored_local and not stored_webdav:
+            raise ImageStorageError("image could not be stored in any backend")
 
         dimensions = _image_dimensions(image_data)
         item = {
