@@ -7,8 +7,12 @@ export type AuthRole = "admin" | "user";
 export type StoredAuthSession = {
   key: string;
   role: AuthRole;
+  roleId?: string;
+  roleName?: string;
   subjectId: string;
   name: string;
+  menuPaths: string[];
+  apiPermissions: string[];
 };
 
 export const AUTH_KEY_STORAGE_KEY = "chatgpt2api_auth_key";
@@ -18,6 +22,23 @@ const authStorage = localforage.createInstance({
   name: "chatgpt2api",
   storeName: "auth",
 });
+
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of value) {
+    const text = String(item || "").trim();
+    if (!text || seen.has(text)) {
+      continue;
+    }
+    seen.add(text);
+    out.push(text);
+  }
+  return out;
+}
 
 function normalizeSession(value: unknown, fallbackKey = ""): StoredAuthSession | null {
   if (!value || typeof value !== "object") {
@@ -34,13 +55,35 @@ function normalizeSession(value: unknown, fallbackKey = ""): StoredAuthSession |
   return {
     key,
     role,
+    roleId: String(candidate.roleId || "").trim(),
+    roleName: String(candidate.roleName || "").trim(),
     subjectId: String(candidate.subjectId || "").trim(),
     name: String(candidate.name || "").trim(),
+    menuPaths: normalizeStringList(candidate.menuPaths),
+    apiPermissions: normalizeStringList(candidate.apiPermissions),
   };
 }
 
-export function getDefaultRouteForRole(role: AuthRole) {
-  return role === "admin" ? "/accounts" : "/image";
+export function canAccessPath(session: StoredAuthSession | null | undefined, path: string) {
+  if (!session) {
+    return false;
+  }
+  if (session.role === "admin") {
+    return true;
+  }
+  return session.menuPaths.includes(path);
+}
+
+export function getDefaultRouteForSession(session: StoredAuthSession) {
+  if (session.role === "admin") {
+    return "/accounts";
+  }
+  for (const path of ["/image", "/wallet", "/subscription", "/agency", "/profile", ...session.menuPaths]) {
+    if (canAccessPath(session, path)) {
+      return path;
+    }
+  }
+  return "/image";
 }
 
 export async function getStoredAuthKey() {

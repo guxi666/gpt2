@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from threading import Lock
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, urlencode, urlparse
 
 from curl_cffi import requests
 from fastapi import HTTPException
@@ -93,6 +93,89 @@ def _write_json_object(path: Path, data: dict[str, object]) -> None:
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(path)
+
+
+class ImgBedClient:
+    def __init__(self, settings: dict[str, object]):
+        self.enabled = bool(settings.get("imgbed_enabled"))
+        self.upload_url = _clean(settings.get("imgbed_upload_url")).rstrip("/")
+        self.auth_code = _clean(settings.get("imgbed_auth_code"))
+        self.upload_channel = _clean(settings.get("imgbed_upload_channel")) or "telegram"
+        self.session = requests.Session()
+
+    def ready(self) -> bool:
+        return self.enabled and bool(self.upload_url)
+
+    def _request_url(self) -> str:
+        query: dict[str, str] = {"returnFormat": "full"}
+        if self.auth_code:
+            query["authCode"] = self.auth_code
+        if self.upload_channel:
+            query["uploadChannel"] = self.upload_channel
+        if not query:
+            return self.upload_url
+        return f"{self.upload_url}?{urlencode(query)}"
+
+    def put(self, rel: str, payload: bytes, content_type: str = "image/png") -> str:
+        if not self.ready():
+            raise ImageStorageError("external image bed is not configured")
+        file_name = Path(_safe_relative_path(rel)).name or "image.png"
+        files = {
+            "file": (file_name, payload, content_type or "application/octet-stream"),
+        }
+        response = self.session.post(self._request_url(), files=files, timeout=30)
+        if response.status_code < 200 or response.status_code >= 300:
+            raise ImageStorageError(f"external image bed upload failed: HTTP {response.status_code} {response.text[:300]}")
+        public_url = self._extract_url(response.content)
+        if not public_url:
+            raise ImageStorageError("external image bed upload succeeded but no URL was found in response")
+        return public_url
+
+    def test(self) -> dict[str, object]:
+        if not self.ready():
+            return {"ok": False, "status": 0, "error": "external image bed upload url is required"}
+        try:
+            sample = b"PNG"
+            self.put("_healthcheck/test.png", sample, "image/png")
+            return {"ok": True, "status": 200, "error": None}
+        except Exception as exc:
+            return {"ok": False, "status": 0, "error": str(exc)}
+        finally:
+            self.session.close()
+
+    @staticmethod
+    def _extract_url(data: bytes) -> str:
+        try:
+            payload = json.loads(data.decode("utf-8"))
+        except Exception:
+            return ""
+        for path in ("url", "src", "data.url", "data.src", "result.url", "result.src", "images.0.url", "images.0.src"):
+            value = ImgBedClient._lookup_by_path(payload, path)
+            if value:
+                value = value.strip()
+                if value.startswith(("http://", "https://")):
+                    return value
+                if value.startswith("//"):
+                    return "https:" + value
+                return value
+        return ""
+
+    @staticmethod
+    def _lookup_by_path(payload: object, path: str) -> str:
+        current = payload
+        for segment in path.split("."):
+            if isinstance(current, dict):
+                current = current.get(segment)
+                continue
+            if isinstance(current, list):
+                if segment.isdigit():
+                    index = int(segment)
+                    if 0 <= index < len(current):
+                        current = current[index]
+                        continue
+                return ""
+            return ""
+        return str(current or "").strip()
 
 
 class WebDAVClient:
@@ -191,6 +274,9 @@ class ImageStorageService:
 
     def _public_url(self, rel: str, base_url: str | None = None) -> str:
         settings = self.settings()
+        imgbed_url = _clean(settings.get("imgbed_public_url"))
+        if imgbed_url:
+            return imgbed_url
         public_base_url = _clean(settings.get("public_base_url"))
         if public_base_url:
             return f"{public_base_url.rstrip('/')}/{_safe_relative_path(rel)}"
@@ -208,11 +294,13 @@ class ImageStorageService:
         mode = self.mode()
         if mode not in {"local", "webdav", "both"}:
             mode = "local"
+        imgbed_enabled = bool(self.settings().get("imgbed_enabled"))
         stored_local = False
         stored_webdav = False
         remote_url = ""
+        imgbed_url = ""
 
-        if mode in {"local", "both"}:
+        if imgbed_enabled or mode in {"local", "both"}:
             path = _local_image_path(rel)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(image_data)
@@ -221,6 +309,9 @@ class ImageStorageService:
         if mode in {"webdav", "both"}:
             remote_url = WebDAVClient(self.settings()).put(rel, image_data)
             stored_webdav = True
+
+        if imgbed_enabled:
+            imgbed_url = ImgBedClient(self.settings()).put(rel, image_data)
 
         dimensions = _image_dimensions(image_data)
         item = {
@@ -234,6 +325,7 @@ class ImageStorageService:
             "local": stored_local,
             "webdav": stored_webdav,
             "remote_url": remote_url,
+            "imgbed_url": imgbed_url,
         }
         if dimensions:
             item["width"], item["height"] = dimensions
@@ -241,7 +333,8 @@ class ImageStorageService:
             items = self._load_clean_index()
             items[rel] = item
             self._save_index(items)
-        return StoredImage(rel=rel, url=self._public_url(rel, base_url), storage=str(item["storage"]), size=len(image_data))
+        public_url = imgbed_url or self._public_url(rel, base_url)
+        return StoredImage(rel=rel, url=public_url, storage=str(item["storage"]), size=len(image_data))
 
     def get_bytes(self, rel: str) -> bytes:
         safe_rel = _safe_relative_path(rel)
@@ -328,7 +421,7 @@ class ImageStorageService:
                     **item,
                     "rel": rel,
                     "path": rel,
-                    "url": self._public_url(rel, base_url),
+                    "url": _clean(item.get("imgbed_url")) or self._public_url(rel, base_url),
                 })
             if changed:
                 self._save_index(indexed)
@@ -400,6 +493,9 @@ class ImageStorageService:
 
     def test_webdav(self) -> dict[str, object]:
         return WebDAVClient(self.settings()).test()
+
+    def test_imgbed(self) -> dict[str, object]:
+        return ImgBedClient(self.settings()).test()
 
 
 image_storage_service = ImageStorageService()

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { getValidatedAuthSession } from "@/lib/auth-session";
 import {
-  getDefaultRouteForRole,
+  canAccessPath,
+  getDefaultRouteForSession,
   type AuthRole,
   type StoredAuthSession,
 } from "@/store/auth";
@@ -15,7 +16,7 @@ type UseAuthGuardResult = {
   session: StoredAuthSession | null;
 };
 
-export function useAuthGuard(allowedRoles?: AuthRole[]): UseAuthGuardResult {
+export function useAuthGuard(allowedRoles?: AuthRole[], requiredPath?: string): UseAuthGuardResult {
   const router = useRouter();
   const [session, setSession] = useState<StoredAuthSession | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -41,7 +42,14 @@ export function useAuthGuard(allowedRoles?: AuthRole[]): UseAuthGuardResult {
       if (roleList.length > 0 && !roleList.includes(storedSession.role)) {
         setSession(storedSession);
         setIsCheckingAuth(false);
-        router.replace(getDefaultRouteForRole(storedSession.role));
+        router.replace(getDefaultRouteForSession(storedSession));
+        return;
+      }
+
+      if (requiredPath && !canAccessPath(storedSession, requiredPath)) {
+        setSession(storedSession);
+        setIsCheckingAuth(false);
+        router.replace(getDefaultRouteForSession(storedSession));
         return;
       }
 
@@ -53,7 +61,7 @@ export function useAuthGuard(allowedRoles?: AuthRole[]): UseAuthGuardResult {
     return () => {
       active = false;
     };
-  }, [allowedRolesKey, router]);
+  }, [allowedRolesKey, requiredPath, router]);
 
   return { isCheckingAuth, session };
 }
@@ -72,7 +80,7 @@ export function useRedirectIfAuthenticated() {
       }
 
       if (storedSession) {
-        router.replace(getDefaultRouteForRole(storedSession.role));
+        router.replace(getDefaultRouteForSession(storedSession));
         return;
       }
 

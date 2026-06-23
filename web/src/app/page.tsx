@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { getValidatedAuthSession } from "@/lib/auth-session";
-import { getDefaultRouteForRole } from "@/store/auth";
+import { getDefaultRouteForSession } from "@/store/auth";
 
 export default function HomePage() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function HomePage() {
       if (!active) {
         return;
       }
-      router.replace(session ? getDefaultRouteForRole(session.role) : "/login");
+      router.replace(session ? getDefaultRouteForSession(session) : "/login");
     };
 
     void redirect();

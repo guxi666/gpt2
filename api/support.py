@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request
 from services.account_service import account_service
 from services.auth_service import auth_service
 from services.config import config
+from services.role_service import has_api_permission, role_service
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 WEB_DIST_DIR = BASE_DIR / "web_dist"
@@ -23,7 +24,15 @@ def extract_bearer_token(authorization: str | None) -> str:
 def _legacy_admin_identity(token: str) -> dict[str, object] | None:
     auth_key = str(config.auth_key or "").strip()
     if auth_key and token == auth_key:
-        return {"id": "admin", "name": "管理员", "role": "admin"}
+        return {
+            "id": "admin",
+            "name": "管理员",
+            "role": "admin",
+            "role_id": "",
+            "role_name": "管理员",
+            "menu_paths": [],
+            "api_permissions": [],
+        }
     return None
 
 
@@ -32,6 +41,18 @@ def require_identity(authorization: str | None) -> dict[str, object]:
     identity = _legacy_admin_identity(token) or auth_service.authenticate(token)
     if identity is None:
         raise HTTPException(status_code=401, detail={"error": "密钥无效或已失效，请重新登录"})
+    return identity
+
+
+def require_permission(authorization: str | None, method: str, path: str) -> dict[str, object]:
+    identity = require_identity(authorization)
+    if identity.get("role") == "admin":
+        return identity
+    if _is_permission_exempt(path):
+        return identity
+    role = role_service.get_role(str(identity.get("role_id") or "").strip())
+    if role is None or not has_api_permission(role, method, path):
+        raise HTTPException(status_code=403, detail={"error": "权限不足，无法访问当前接口"})
     return identity
 
 
@@ -44,6 +65,17 @@ def require_admin(authorization: str | None) -> dict[str, object]:
     if identity.get("role") != "admin":
         raise HTTPException(status_code=403, detail={"error": "需要管理员权限才能执行这个操作"})
     return identity
+
+
+def _is_permission_exempt(path: str) -> bool:
+    normalized = str(path or "").strip()
+    if normalized in {"/auth/login", "/version", "/health"}:
+        return True
+    if normalized.startswith("/images/") or normalized.startswith("/image-thumbnails/"):
+        return True
+    if normalized == "/api/pay/yipay/notify":
+        return True
+    return False
 
 
 def resolve_image_base_url(request: Request) -> str:

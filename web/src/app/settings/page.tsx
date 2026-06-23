@@ -6,21 +6,31 @@ import { LoaderCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuthGuard } from "@/lib/use-auth-guard";
 
-import { BackupSettingsCard } from "./components/backup-settings-card";
+import { AgencySettingsCard } from "./components/agency-settings-card";
 import { ApiDocsCard } from "./components/api-docs-card";
+import { BackupSettingsCard } from "./components/backup-settings-card";
 import { ConfigCard } from "./components/config-card";
 import { CPAPoolDialog } from "./components/cpa-pool-dialog";
 import { CPAPoolsCard } from "./components/cpa-pools-card";
 import { ImportBrowserDialog } from "./components/import-browser-dialog";
+import { PaymentSettingsCard } from "./components/payment-settings-card";
 import { ProxyRuntimeCard } from "./components/proxy-runtime-card";
 import { SettingsHeader } from "./components/settings-header";
+import { SiteBrandCard } from "./components/site-brand-card";
+import { SMTPSettingsCard } from "./components/smtp-settings-card";
 import { Sub2APIConnections } from "./components/sub2api-connections";
+import { SubscriptionSettingsCard } from "./components/subscription-settings-card";
 import { ThirdPartyAppsCard } from "./components/third-party-apps-card";
 import { UserKeysCard } from "./components/user-keys-card";
 import { useSettingsStore } from "./store";
 
 const settingsTabs = [
   { value: "basic", title: "基础配置" },
+  { value: "brand", title: "站点品牌" },
+  { value: "smtp", title: "SMTP" },
+  { value: "payment", title: "支付" },
+  { value: "agency", title: "代理加盟" },
+  { value: "subscription", title: "订阅" },
   { value: "backup", title: "备份" },
   { value: "keys", title: "用户密钥" },
   { value: "api-docs", title: "接口接入" },
@@ -54,7 +64,6 @@ function SettingsDataController() {
     if (!hasRunningJobs) {
       return;
     }
-
     const timer = window.setInterval(() => {
       void loadPools(true);
     }, 1500);
@@ -91,6 +100,21 @@ function SettingsPageContent() {
         </div>
         <TabsContent value="basic">
           <ConfigCard />
+        </TabsContent>
+        <TabsContent value="brand">
+          <SiteBrandCard />
+        </TabsContent>
+        <TabsContent value="smtp">
+          <SMTPSettingsCard />
+        </TabsContent>
+        <TabsContent value="payment">
+          <PaymentSettingsCard />
+        </TabsContent>
+        <TabsContent value="agency">
+          <AgencySettingsCard />
+        </TabsContent>
+        <TabsContent value="subscription">
+          <SubscriptionSettingsCard />
         </TabsContent>
         <TabsContent value="proxy">
           <ProxyRuntimeCard />

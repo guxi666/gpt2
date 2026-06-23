@@ -2,9 +2,28 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { NextConfig } from 'next'
-import { parseChangelog } from './src/lib/release'
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+function parseChangelog(content: string) {
+    return content
+        .split(/^## /m)
+        .slice(1)
+        .map((block) => {
+            const [title = '', ...lines] = block.trim().split('\n')
+            const [, version = title.trim(), date = ''] =
+                title.match(/^(.+?)(?:\s+-\s+(.+))?$/) || []
+            return {
+                version: version.trim(),
+                date: date.trim(),
+                items: lines
+                    .map((line) => line.trim().match(/^\+\s+\[(.+?)\]\s+(.+)$/))
+                    .filter(Boolean)
+                    .map((match) => ({ type: match![1], content: match![2] })),
+            }
+        })
+        .filter((release) => release.items.length)
+}
 
 function readAppVersion() {
     try {

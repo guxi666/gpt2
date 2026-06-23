@@ -26,6 +26,8 @@ from api.support import (
 from services.account_service import account_service
 from services.cpa_service import cpa_config, cpa_import_service, list_remote_files
 from services.oauth_login_service import OAuthLoginError, oauth_login_service
+from services.legacy_import_service import import_legacy
+from services.role_service import DEFAULT_ROLE_ID, role_service
 from services.sub2api_service import (
     list_remote_accounts as sub2api_list_remote_accounts,
     list_remote_groups as sub2api_list_remote_groups,
@@ -120,6 +122,42 @@ class OAuthLoginFinishRequest(BaseModel):
     callback: str = ""
 
 
+class ManagedUserCreateRequest(BaseModel):
+    username: str = ""
+    name: str = ""
+    password: str = ""
+    role_id: str = DEFAULT_ROLE_ID
+    enabled: bool = True
+
+
+class ManagedUserUpdateRequest(BaseModel):
+    name: str | None = None
+    role_id: str | None = None
+    enabled: bool | None = None
+
+
+class ManagedUserResetKeyRequest(BaseModel):
+    name: str = ""
+
+
+class ManagedRoleCreateRequest(BaseModel):
+    name: str = ""
+    description: str = ""
+    menu_paths: list[str] = Field(default_factory=list)
+    api_permissions: list[str] = Field(default_factory=list)
+
+
+class ManagedRoleUpdateRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    menu_paths: list[str] | None = None
+    api_permissions: list[str] | None = None
+
+
+class LegacyImportRequest(BaseModel):
+    source_path: str = ""
+
+
 def _account_payload_token(item: dict[str, Any]) -> str:
     return str(item.get("access_token") or item.get("accessToken") or "").strip()
 
@@ -159,6 +197,139 @@ def _account_zip_bytes(items: list[dict[str, str]]) -> bytes:
 
 def create_router() -> APIRouter:
     router = APIRouter()
+
+    @router.get("/api/admin/permissions")
+    async def get_permission_catalog(authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        return role_service.permission_catalog()
+
+    @router.get("/api/admin/roles")
+    async def list_managed_roles(authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        return {"items": role_service.list_roles()}
+
+    @router.post("/api/admin/roles")
+    async def create_managed_role(body: ManagedRoleCreateRequest, authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        try:
+            item = role_service.create_role(body.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        return {"item": item, "items": role_service.list_roles()}
+
+    @router.post("/api/admin/roles/{role_id}")
+    async def update_managed_role(role_id: str, body: ManagedRoleUpdateRequest, authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        try:
+            item = role_service.update_role(role_id, body.model_dump(exclude_none=True))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        return {"item": item, "items": role_service.list_roles()}
+
+    @router.delete("/api/admin/roles/{role_id}")
+    async def delete_managed_role(role_id: str, authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        try:
+            role_service.delete_role(role_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        return {"items": role_service.list_roles()}
+
+    @router.get("/api/admin/users")
+    async def list_managed_users(authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        return {"items": auth_service.list_managed_users()}
+
+    @router.post("/api/admin/users")
+    async def create_managed_user(body: ManagedUserCreateRequest, authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        role = role_service.get_role(body.role_id) or role_service.get_role(DEFAULT_ROLE_ID)
+        if role is None:
+            raise HTTPException(status_code=400, detail={"error": "role not found"})
+        try:
+            item, raw_key = auth_service.create_key(
+                role="user",
+                name=body.name or body.username,
+                username=body.username,
+                role_id=str(role.get("id") or DEFAULT_ROLE_ID),
+                role_name=str(role.get("name") or ""),
+                menu_paths=role.get("menu_paths") if isinstance(role.get("menu_paths"), list) else [],
+                api_permissions=role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else [],
+                provider="local",
+            )
+            if body.enabled is False:
+                item = auth_service.update_key(str(item.get("id") or ""), {"enabled": False}, role="user") or item
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        return {"item": next((user for user in auth_service.list_managed_users() if str(user.get("id") or "") == str(item.get("id") or "")), None), "key": raw_key, "items": auth_service.list_managed_users()}
+
+    @router.post("/api/admin/users/{user_id}")
+    async def update_managed_user(user_id: str, body: ManagedUserUpdateRequest, authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        updates: dict[str, object] = {}
+        if body.name is not None:
+            updates["name"] = body.name
+        if body.enabled is not None:
+            updates["enabled"] = body.enabled
+        if body.role_id is not None:
+            role = role_service.get_role(body.role_id)
+            if role is None:
+                raise HTTPException(status_code=400, detail={"error": "role not found"})
+            updates["role_id"] = str(role.get("id") or "")
+            updates["role_name"] = str(role.get("name") or "")
+            updates["menu_paths"] = role.get("menu_paths") if isinstance(role.get("menu_paths"), list) else []
+            updates["api_permissions"] = role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else []
+        if not updates:
+            raise HTTPException(status_code=400, detail={"error": "no updates provided"})
+        item = auth_service.update_key(user_id, updates, role="user")
+        if item is None:
+            raise HTTPException(status_code=404, detail={"error": "user not found"})
+        current = next((user for user in auth_service.list_managed_users() if str(user.get("id") or "") == str(item.get("id") or "")), None)
+        return {"item": current, "items": auth_service.list_managed_users()}
+
+    @router.delete("/api/admin/users/{user_id}")
+    async def delete_managed_user(user_id: str, authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        if not auth_service.delete_key(user_id, role="user"):
+            raise HTTPException(status_code=404, detail={"error": "user not found"})
+        return {"items": auth_service.list_managed_users()}
+
+    @router.post("/api/admin/users/{user_id}/reset-key")
+    async def reset_managed_user_key(user_id: str, body: ManagedUserResetKeyRequest, authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        current = next((item for item in auth_service.list_keys(role="user") if str(item.get("id") or "") == user_id), None)
+        if current is None:
+            raise HTTPException(status_code=404, detail={"error": "user not found"})
+        role = role_service.get_role(str(current.get("role_id") or DEFAULT_ROLE_ID)) or role_service.get_role(DEFAULT_ROLE_ID)
+        if role is None:
+            raise HTTPException(status_code=400, detail={"error": "role not found"})
+        try:
+            auth_service.delete_key(user_id, role="user")
+            item, raw_key = auth_service.create_key(
+                role="user",
+                name=body.name or str(current.get("name") or ""),
+                username=str(current.get("username") or ""),
+                role_id=str(role.get("id") or DEFAULT_ROLE_ID),
+                role_name=str(role.get("name") or ""),
+                menu_paths=role.get("menu_paths") if isinstance(role.get("menu_paths"), list) else [],
+                api_permissions=role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else [],
+                provider=str(current.get("provider") or "local"),
+            )
+            if current.get("enabled") is False:
+                auth_service.update_key(str(item.get("id") or ""), {"enabled": False}, role="user")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        managed = next((user for user in auth_service.list_managed_users() if str(user.get("id") or "") == str(item.get("id") or "")), None)
+        return {"item": managed, "api_key": item, "key": raw_key, "items": auth_service.list_managed_users()}
+
+    @router.post("/api/admin/import/legacy")
+    async def import_legacy_data(body: LegacyImportRequest, authorization: str | None = Header(default=None)):
+        require_admin(authorization)
+        try:
+            result = await run_in_threadpool(import_legacy, body.source_path)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        return result
 
     @router.get("/api/auth/users")
     async def list_user_keys(authorization: str | None = Header(default=None)):

@@ -20,6 +20,8 @@ docker-compose-local.yml
 # Environment variables
 .env
 .env.local
+web/.npm-cache/
+web/node_modules/
 
 # Database files
 *.db
@@ -33,3 +35,5 @@ git_cache/
 loginwithpassword_*/
 logwithemailverifycode_*/
 test_batch_output/
+.tmp*.log
+web/.tmp*.log

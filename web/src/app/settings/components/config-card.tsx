@@ -275,13 +275,7 @@ export function ConfigCard() {
           </div>
           <div className="space-y-4 rounded-xl border border-stone-200 bg-white px-4 py-3 md:col-span-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <label className="flex items-center gap-3 text-sm text-stone-700">
-                <Checkbox
-                  checked={Boolean(config?.image_storage?.enabled)}
-                  onCheckedChange={(checked) => setImageStorageField("enabled", Boolean(checked))}
-                />
-                启用 WebDAV 图片存储
-              </label>
+              <div className="text-base font-semibold text-stone-900">图片存储配置</div>
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
@@ -305,21 +299,70 @@ export function ConfigCard() {
                 </Button>
               </div>
             </div>
-            <p className="text-xs leading-6 text-stone-500">
-              生成时只处理本次新图片；全量同步用于把已有本地图片补传到 WebDAV。
-            </p>
-            <div className="rounded-lg border border-stone-100 bg-stone-50 px-3 py-2 text-xs text-stone-600">
-              当前待保存模式：
-              <span className="ml-1 font-medium text-stone-900">
-                {config?.image_storage?.enabled
-                  ? config.image_storage.mode === "both"
-                    ? "本机 + WebDAV"
-                    : config.image_storage.mode === "webdav"
-                      ? "仅 WebDAV"
-                      : "仅本机"
-                  : "仅本机"}
-              </span>
-              <span className="ml-2 text-stone-400">修改后需要点保存，或通过测试/同步按钮自动保存。</span>
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+              <div className="mb-3 text-sm font-semibold text-stone-900">第 1 优先级：CloudFlare-ImgBed</div>
+              <label className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-700">
+                <Checkbox
+                  checked={Boolean(config?.image_storage?.imgbed_enabled)}
+                  onCheckedChange={(checked) => setImageStorageField("imgbed_enabled", Boolean(checked))}
+                />
+                启用外部图床优先上传
+              </label>
+              <div className="mt-4 grid gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm text-stone-700">上传接口 URL</label>
+                  <Input
+                    value={String(config?.image_storage?.imgbed_upload_url || "https://img.a686.de/upload")}
+                    onChange={(event) => setImageStorageField("imgbed_upload_url", event.target.value)}
+                    className="h-10 rounded-xl border-stone-200 bg-white"
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label className="text-sm text-stone-700">Auth Code</label>
+                    <Input
+                      value={String(config?.image_storage?.imgbed_auth_code || "")}
+                      onChange={(event) => setImageStorageField("imgbed_auth_code", event.target.value)}
+                      placeholder="不修改可留空"
+                      className="h-10 rounded-xl border-stone-200 bg-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm text-stone-700">上传通道</label>
+                    <Input
+                      value={String(config?.image_storage?.imgbed_upload_channel || "telegram")}
+                      onChange={(event) => setImageStorageField("imgbed_upload_channel", event.target.value)}
+                      className="h-10 rounded-xl border-stone-200 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+              <div className="mb-3 text-sm font-semibold text-stone-900">第 2 优先级：本机 / WebDAV</div>
+              <label className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-700">
+                <Checkbox
+                  checked={Boolean(config?.image_storage?.enabled)}
+                  onCheckedChange={(checked) => setImageStorageField("enabled", Boolean(checked))}
+                />
+                启用 WebDAV 图片存储
+              </label>
+              <p className="mt-3 text-xs leading-6 text-stone-500">
+                当外部图床未启用或上传失败时，继续走本机 / WebDAV 路线；同时会保留本地副本，避免影响图片库和后续查看。
+              </p>
+              <div className="mt-3 rounded-lg border border-stone-100 bg-white px-3 py-2 text-xs text-stone-600">
+                当前待保存模式：
+                <span className="ml-1 font-medium text-stone-900">
+                  {config?.image_storage?.enabled
+                    ? config.image_storage.mode === "both"
+                      ? "本机 + WebDAV"
+                      : config.image_storage.mode === "webdav"
+                        ? "仅 WebDAV"
+                        : "仅本机"
+                    : "仅本机"}
+                </span>
+              </div>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">

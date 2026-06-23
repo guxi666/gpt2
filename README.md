@@ -31,6 +31,28 @@ docker compose up -d
 - API 地址：`http://localhost:3000/v1`
 - 数据目录：`./data`
 
+### GitHub 自动构建镜像
+
+仓库已经支持推送到 `main` 后自动由 GitHub Actions 构建并推送镜像到 GHCR：
+
+- `ghcr.io/basketikun/chatgpt2api:latest`
+- `ghcr.io/basketikun/chatgpt2api:sha-<commit>`
+
+服务器无需本地构建，只需要拉镜像运行：
+
+```bash
+git pull
+docker compose pull
+docker compose up -d
+```
+
+如果你想固定某个 commit 镜像，也可以在 `.env` 或 shell 中指定：
+
+```bash
+CHATGPT2API_RUNTIME_IMAGE=ghcr.io/basketikun/chatgpt2api:sha-<commit>
+docker compose up -d
+```
+
 ### WARP / FlareSolverr 稳定代理部署
 
 如果注册或图片链路经常遇到 Cloudflare 拦截，可以启用附带的 WARP + Privoxy + FlareSolverr 方案：

@@ -1758,7 +1758,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
 }
 
 export default function ImagePage() {
-  const { isCheckingAuth, session } = useAuthGuard();
+  const { isCheckingAuth, session } = useAuthGuard(undefined, "/image");
 
   if (isCheckingAuth || !session) {
     return (

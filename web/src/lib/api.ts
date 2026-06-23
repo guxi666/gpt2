@@ -9,6 +9,10 @@ export type ImageStorageMode = "local" | "webdav" | "both";
 export type ImageStorageSettings = {
   enabled: boolean;
   mode: ImageStorageMode;
+  imgbed_enabled?: boolean;
+  imgbed_upload_url?: string;
+  imgbed_auth_code?: string;
+  imgbed_upload_channel?: string;
   webdav_url: string;
   webdav_username: string;
   webdav_password: string;
@@ -155,6 +159,70 @@ export type ThirdPartyAppsSettings = {
 export type SettingsConfig = {
   proxy: string;
   base_url?: string;
+  brand_top_left_name?: string;
+  brand_site_name?: string;
+  brand_top_left_logo_url?: string;
+  brand_site_logo_url?: string;
+  email_smtp_enabled?: boolean;
+  email_smtp_host?: string;
+  email_smtp_port?: number | string;
+  email_smtp_use_ssl?: boolean;
+  email_smtp_username?: string;
+  email_smtp_auth_code?: string;
+  email_smtp_from_email?: string;
+  email_smtp_from_name?: string;
+  agency_enabled?: boolean;
+  agency_tier_basic_cents?: number | string;
+  agency_tier_pro_cents?: number | string;
+  agency_tier_premium_cents?: number | string;
+  agency_tier_basic_commission_bp?: number | string;
+  agency_tier_pro_commission_bp?: number | string;
+  agency_tier_premium_commission_bp?: number | string;
+  agency_tier_basic_discount_bp?: number | string;
+  agency_tier_pro_discount_bp?: number | string;
+  agency_tier_premium_discount_bp?: number | string;
+  agency_materials?: AgencyMaterial[];
+  agency_material_qr_enabled?: boolean;
+  agency_material_qr_x_percent?: number | string;
+  agency_material_qr_y_percent?: number | string;
+  agency_material_qr_size_percent?: number | string;
+  agency_material_qr_logo_percent?: number | string;
+  subscription_enabled?: boolean;
+  subscription_heading?: string;
+  subscription_subheading?: string;
+  subscription_safety_text?: string;
+  subscription_agent_hint?: string;
+  subscription_monthly_name?: string;
+  subscription_monthly_desc?: string;
+  subscription_monthly_badge?: string;
+  subscription_monthly_price_cents?: number | string;
+  subscription_monthly_price_note?: string;
+  subscription_monthly_features?: string;
+  subscription_quarterly_name?: string;
+  subscription_quarterly_desc?: string;
+  subscription_quarterly_badge?: string;
+  subscription_quarterly_price_cents?: number | string;
+  subscription_quarterly_price_note?: string;
+  subscription_quarterly_features?: string;
+  subscription_yearly_name?: string;
+  subscription_yearly_desc?: string;
+  subscription_yearly_badge?: string;
+  subscription_yearly_price_cents?: number | string;
+  subscription_yearly_price_note?: string;
+  subscription_yearly_features?: string;
+  yipay_enabled?: boolean;
+  yipay_pid?: string;
+  yipay_key?: string;
+  yipay_submit_url?: string;
+  yipay_notify_url?: string;
+  yipay_return_url?: string;
+  yipay_site_name?: string;
+  paypal_enabled?: boolean;
+  paypal_checkout_url?: string;
+  usdt_enabled?: boolean;
+  usdt_network?: string;
+  usdt_address?: string;
+  usdt_payment_url?: string;
   global_system_prompt?: string;
   sensitive_words?: string[];
   ai_review?: {
@@ -183,6 +251,281 @@ export type SettingsConfig = {
   backup?: BackupSettings;
   backup_state?: BackupState;
   [key: string]: unknown;
+};
+
+export type WalletInfo = {
+  user_id: string;
+  name: string;
+  invite_code?: string;
+  invited_by?: string;
+  invited_by_email?: string;
+  invited_count?: number;
+  invited_users?: Array<Record<string, unknown>>;
+  balance_cents: number;
+  total_recharge_cents: number;
+  total_consume_cents: number;
+  agency_tier?: string;
+  agency_enabled?: boolean;
+  agency_commission_bp?: number;
+  agency_discount_bp?: number;
+  agency_joined_at?: string;
+  subscription_tier?: string;
+  subscription_start_at?: string;
+  subscription_expire_at?: string;
+  subscription_active?: boolean;
+  updated_at?: string;
+};
+
+export type PayType = "alipay" | "wxpay" | "paypal" | "usdt" | "balance";
+
+export type PayOrder = {
+  id: string;
+  record_type?: string;
+  type?: string;
+  order_kind?: string;
+  provider: string;
+  status: string;
+  out_trade_no?: string;
+  user_id?: string;
+  user_display?: string;
+  pay_type?: string;
+  amount_cents: number;
+  amount_yuan?: string;
+  balance_after_cents?: number;
+  note?: string;
+  pay_url?: string;
+  agency_tier?: string;
+  subscription_tier?: string;
+  created_at: string;
+  updated_at?: string;
+  paid_at?: string;
+};
+
+export type RedeemCode = {
+  code: string;
+  amount_cents: number;
+  amount_yuan: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+  expires_at?: string;
+  used_by?: string;
+  used_at?: string;
+  note?: string;
+};
+
+export type AdminBillingStats = {
+  today_revenue_cents: number;
+  today_revenue_yuan: string;
+  today_paid_count: number;
+  total_revenue_cents: number;
+  total_revenue_yuan: string;
+  total_paid_count: number;
+  pending_count: number;
+  failed_count: number;
+  record_count: number;
+  updated_at?: string;
+};
+
+export type AgencyTier = {
+  key: string;
+  name: string;
+  price_cents: number;
+  price_yuan?: number;
+  description?: string;
+  commission_bp?: number;
+  discount_bp?: number;
+};
+
+export type AgencyMaterial = {
+  id: string;
+  title: string;
+  description?: string;
+  image_url?: string;
+  copy?: string;
+};
+
+export type AgencyMaterialQRConfig = {
+  enabled?: boolean;
+  x_percent?: number;
+  y_percent?: number;
+  size_percent?: number;
+  logo_percent?: number;
+};
+
+export type AgencyConfig = {
+  editable: boolean;
+  enabled?: boolean;
+  tiers: AgencyTier[];
+  materials?: AgencyMaterial[];
+  material_qr?: AgencyMaterialQRConfig;
+};
+
+export type AgencyCommissionOrder = {
+  id: string;
+  user_id?: string;
+  user_email?: string;
+  amount_cents: number;
+  amount_yuan?: string;
+  commission_cents: number;
+  commission_yuan?: string;
+  commission_bp?: number;
+  status?: string;
+  created_at?: string;
+  out_trade_no?: string;
+};
+
+export type AgencyWithdrawalRequest = {
+  id: string;
+  user_id?: string;
+  user_email?: string;
+  amount_cents: number;
+  amount_yuan?: string;
+  alipay_qr_code?: string;
+  wechat_qr_code?: string;
+  phone?: string;
+  wechat_id?: string;
+  status?: "pending" | "approved" | "rejected" | "paid" | string;
+  admin_note?: string;
+  created_at?: string;
+  updated_at?: string;
+  processed_at?: string;
+};
+
+export type AgencyWithdrawProfile = {
+  alipay_qr_code?: string;
+  wechat_qr_code?: string;
+  phone?: string;
+  wechat_id?: string;
+};
+
+export type AgencyCommissionDashboard = {
+  agent: {
+    user_id: string;
+    email?: string;
+    name?: string;
+    tier?: string;
+    enabled?: boolean;
+    commission_bp?: number;
+    discount_bp?: number;
+    joined_at?: string;
+    invite_code?: string;
+    channel_link?: string;
+    invited_count?: number;
+    invited_users?: Array<Record<string, unknown>>;
+    wallet_balance?: number;
+  };
+  summary: {
+    today_commission_cents: number;
+    today_commission_yuan: string;
+    month_commission_cents: number;
+    month_commission_yuan: string;
+    total_commission_cents: number;
+    total_commission_yuan: string;
+    available_cents: number;
+    available_yuan: string;
+  };
+  orders: AgencyCommissionOrder[];
+  withdrawals?: AgencyWithdrawalRequest[];
+};
+
+export type AgencyAdminUser = {
+  id: string;
+  email?: string;
+  name?: string;
+  agency_tier?: string;
+  agency_enabled?: boolean;
+  agency_commission_bp?: number;
+  agency_discount_bp?: number;
+  agency_joined_at?: string;
+};
+
+export type PermissionMenu = {
+  id: string;
+  label: string;
+  path: string;
+  order?: number;
+};
+
+export type ApiPermission = {
+  key: string;
+  method: string;
+  path: string;
+  label: string;
+  group: string;
+};
+
+export type ManagedRole = {
+  id: string;
+  name: string;
+  description?: string;
+  builtin?: boolean;
+  menu_paths?: string[];
+  api_permissions?: string[];
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ManagedUser = {
+  id: string;
+  username?: string;
+  email?: string;
+  name: string;
+  role: "user";
+  role_id?: string;
+  role_name?: string;
+  provider?: string;
+  enabled: boolean;
+  has_api_key?: boolean;
+  has_session?: boolean;
+  api_key_id?: string;
+  api_key_name?: string;
+  credential_count?: number;
+  created_at?: string | null;
+  last_used_at?: string | null;
+  menu_paths?: string[];
+  api_permissions?: string[];
+  balance_cents?: number;
+  total_recharge_cents?: number;
+  total_consume_cents?: number;
+  agency_tier?: string;
+  agency_enabled?: boolean;
+  agency_commission_bp?: number;
+  agency_discount_bp?: number;
+  subscription_tier?: string;
+  subscription_start_at?: string;
+  subscription_expire_at?: string;
+  subscription_active?: boolean;
+};
+
+export type SubscriptionPlan = {
+  key: string;
+  name: string;
+  description?: string;
+  badge?: string;
+  price_cents: number;
+  price_note?: string;
+  features?: string[];
+  period_label?: string;
+};
+
+export type SubscriptionStatus = {
+  tier?: string;
+  start_at?: string;
+  expire_at?: string;
+  active: boolean;
+};
+
+export type SubscriptionPlansResponse = {
+  enabled?: boolean;
+  plans: SubscriptionPlan[];
+  status: SubscriptionStatus;
+  wallet: WalletInfo;
+  pay_channels?: string[];
+  heading?: string;
+  subheading?: string;
+  safety_text?: string;
+  agent_hint?: string;
 };
 
 export type BackupInclude = {
@@ -304,8 +647,22 @@ export type LoginResponse = {
   ok: boolean;
   version: string;
   role: AuthRole;
+  role_id?: string;
+  role_name?: string;
   subject_id: string;
   name: string;
+  menu_paths?: string[];
+  api_permissions?: string[];
+  key?: string;
+};
+
+export type AppMeta = {
+  app_title: string;
+  project_name: string;
+  top_left_logo_url: string;
+  site_logo_url: string;
+  agency_enabled?: boolean;
+  subscription_enabled?: boolean;
 };
 
 export type UserKey = {
@@ -564,6 +921,51 @@ export async function fetchSettingsConfig() {
   return httpRequest<{ config: SettingsConfig }>("/api/settings");
 }
 
+export async function fetchAppMeta() {
+  return httpRequest<AppMeta>("/api/app-meta", {
+    redirectOnUnauthorized: false,
+  });
+}
+
+export async function loginWithPassword(payload: { email: string; password: string }) {
+  return httpRequest<LoginResponse>("/auth/login", {
+    method: "POST",
+    body: payload,
+    redirectOnUnauthorized: false,
+  });
+}
+
+export async function fetchAuthProviders() {
+  return httpRequest<{
+    key_login?: { enabled: boolean };
+    registration?: { enabled: boolean };
+    email_verification?: { enabled: boolean };
+  }>("/auth/providers", {
+    redirectOnUnauthorized: false,
+  });
+}
+
+export async function sendRegisterCode(email: string) {
+  return httpRequest<{ ok: boolean; expires_in?: number }>("/auth/register/send-code", {
+    method: "POST",
+    body: { email },
+    redirectOnUnauthorized: false,
+  });
+}
+
+export async function registerEmailAccount(email: string, password: string, code: string, name?: string) {
+  return httpRequest<LoginResponse>("/auth/register", {
+    method: "POST",
+    body: {
+      email,
+      password,
+      code,
+      name: name ?? "",
+    },
+    redirectOnUnauthorized: false,
+  });
+}
+
 export async function updateSettingsConfig(settings: SettingsConfig) {
   return httpRequest<{ config: SettingsConfig }>("/api/settings", {
     method: "POST",
@@ -573,6 +975,286 @@ export async function updateSettingsConfig(settings: SettingsConfig) {
 
 export async function fetchThirdPartyApps() {
   return httpRequest<{ third_party_apps: ThirdPartyAppsSettings }>("/api/third-party-apps");
+}
+
+export async function fetchPermissionCatalog() {
+  return httpRequest<{ menus: PermissionMenu[]; apis: ApiPermission[] }>("/api/admin/permissions");
+}
+
+export async function fetchManagedRoles() {
+  return httpRequest<{ items: ManagedRole[] }>("/api/admin/roles");
+}
+
+export async function createManagedRole(payload: {
+  name: string;
+  description?: string;
+  menu_paths?: string[];
+  api_permissions?: string[];
+}) {
+  return httpRequest<{ item: ManagedRole; items: ManagedRole[] }>("/api/admin/roles", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function updateManagedRole(
+  roleId: string,
+  updates: {
+    name?: string;
+    description?: string;
+    menu_paths?: string[];
+    api_permissions?: string[];
+  },
+) {
+  return httpRequest<{ item: ManagedRole; items: ManagedRole[] }>(`/api/admin/roles/${encodeURIComponent(roleId)}`, {
+    method: "POST",
+    body: updates,
+  });
+}
+
+export async function deleteManagedRole(roleId: string) {
+  return httpRequest<{ items: ManagedRole[] }>(`/api/admin/roles/${encodeURIComponent(roleId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchManagedUsers() {
+  return httpRequest<{ items: ManagedUser[] }>("/api/admin/users");
+}
+
+export async function createManagedUser(payload: {
+  username: string;
+  name?: string;
+  password: string;
+  role_id?: string;
+  enabled?: boolean;
+}) {
+  return httpRequest<{ item: ManagedUser; key: string; items: ManagedUser[] }>("/api/admin/users", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function updateManagedUser(
+  userId: string,
+  updates: { enabled?: boolean; name?: string; role_id?: string },
+) {
+  return httpRequest<{ item: ManagedUser; items: ManagedUser[] }>(`/api/admin/users/${encodeURIComponent(userId)}`, {
+    method: "POST",
+    body: updates,
+  });
+}
+
+export async function deleteManagedUser(userId: string) {
+  return httpRequest<{ items: ManagedUser[] }>(`/api/admin/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function resetManagedUserKey(userId: string, name?: string) {
+  return httpRequest<{ item: ManagedUser; api_key: Record<string, unknown>; key: string; items: ManagedUser[] }>(`/api/admin/users/${encodeURIComponent(userId)}/reset-key`, {
+    method: "POST",
+    body: { name: name ?? "" },
+  });
+}
+
+export async function importLegacyData(sourcePath: string) {
+  return httpRequest<{
+    ok: boolean;
+    roles_imported: number;
+    users_imported: number;
+    billing_profiles_imported: number;
+    created_keys: Array<{ id: string; username: string; key: string }>;
+  }>("/api/admin/import/legacy", {
+    method: "POST",
+    body: { source_path: sourcePath },
+  });
+}
+
+export async function adjustManagedUserBalance(
+  userId: string,
+  payload: { delta_cents?: number; balance_cents?: number; note?: string },
+) {
+  return httpRequest<{ wallet: WalletInfo; items: WalletInfo[] }>(`/api/admin/billing/users/${encodeURIComponent(userId)}/balance`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function adjustManagedUserSubscription(
+  userId: string,
+  payload: {
+    mode: "set" | "extend" | "clear";
+    tier?: string;
+    expire_at?: string;
+    extend_days?: number;
+  },
+) {
+  return httpRequest<{ status: SubscriptionStatus; items: WalletInfo[] }>(`/api/admin/billing/users/${encodeURIComponent(userId)}/subscription`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchWallet() {
+  return httpRequest<{ wallet: WalletInfo; image_price: number; pay_channels?: string[] }>("/api/wallet");
+}
+
+export async function redeemWalletCode(payload: { code: string }) {
+  return httpRequest<{ ok: boolean; wallet: WalletInfo }>("/api/wallet/redeem", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchPayOrders(limit = 100) {
+  return httpRequest<{ items: PayOrder[] }>(`/api/pay/orders?limit=${encodeURIComponent(String(limit))}`);
+}
+
+export async function createPayOrder(payload: {
+  amount?: string;
+  amount_cents?: number;
+  pay_type: PayType;
+}) {
+  return httpRequest<{ order: PayOrder }>("/api/pay/orders", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchAdminBillingOrders(limit = 300) {
+  return httpRequest<{ items: PayOrder[]; stats: AdminBillingStats }>(`/api/admin/billing/orders?limit=${encodeURIComponent(String(limit))}`);
+}
+
+export async function fetchAdminBillingUsers() {
+  return httpRequest<{ items: WalletInfo[] }>("/api/admin/billing/users");
+}
+
+export async function fetchRedeemCodes(limit = 200) {
+  return httpRequest<{ items: RedeemCode[] }>(`/api/admin/billing/redeem-codes?limit=${encodeURIComponent(String(limit))}`);
+}
+
+export async function createRedeemCodes(payload: {
+  amount_cents?: number;
+  amount?: string;
+  count?: number;
+  expires_at?: string;
+  note?: string;
+}) {
+  return httpRequest<{ items: RedeemCode[]; created: RedeemCode[] }>("/api/admin/billing/redeem-codes", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function updateRedeemCode(
+  code: string,
+  payload: { enabled?: boolean; expires_at?: string; note?: string },
+) {
+  return httpRequest<{ item: RedeemCode; items: RedeemCode[] }>(`/api/admin/billing/redeem-codes/${encodeURIComponent(code)}`, {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function deleteRedeemCode(code: string) {
+  return httpRequest<{ items: RedeemCode[] }>(`/api/admin/billing/redeem-codes/${encodeURIComponent(code)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchAgencyConfig() {
+  return httpRequest<AgencyConfig>("/api/agency");
+}
+
+export async function updateAgencyConfig(payload: Record<string, unknown>) {
+  return httpRequest<{ config: SettingsConfig }>("/api/agency", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function joinAgencyTier(payload: { tier: string; pay_type: PayType }) {
+  return httpRequest<{ ok: boolean; pending_payment: boolean; tier: string; order: PayOrder }>("/api/agency/join", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function upgradeAgencyTier(payload: { tier: string; pay_type: PayType }) {
+  return httpRequest<{ ok: boolean; pending_payment: boolean; tier: string; order: PayOrder }>("/api/agency/upgrade", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchAgencyCommissionDashboard() {
+  return httpRequest<AgencyCommissionDashboard>("/api/agency/commission");
+}
+
+export async function fetchAgencyWithdrawals(limit = 100) {
+  return httpRequest<{ items: AgencyWithdrawalRequest[] }>(`/api/agency/withdrawals?limit=${encodeURIComponent(String(limit))}`);
+}
+
+export async function createAgencyWithdrawal(payload: {
+  amount_cents: number;
+  alipay_qr_code?: string;
+  wechat_qr_code?: string;
+  phone?: string;
+  wechat_id?: string;
+}) {
+  return httpRequest<{ ok: boolean; item: AgencyWithdrawalRequest }>("/api/agency/withdrawals", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchAgencyWithdrawProfile() {
+  return httpRequest<{ profile: AgencyWithdrawProfile }>("/api/agency/withdraw-profile");
+}
+
+export async function updateAgencyWithdrawProfile(payload: AgencyWithdrawProfile) {
+  return httpRequest<{ ok: boolean; profile: AgencyWithdrawProfile }>("/api/agency/withdraw-profile", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchAgencyAdminUsers() {
+  return httpRequest<{ items: AgencyAdminUser[] }>("/api/agency/admin/users");
+}
+
+export async function activateAgencyUser(payload: { user_id: string; tier: string }) {
+  return httpRequest<{ ok: boolean; wallet?: Record<string, unknown>; tier: string }>("/api/agency/admin/users", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchAgencyAdminWithdrawals(limit = 500) {
+  return httpRequest<{ items: AgencyWithdrawalRequest[] }>(`/api/agency/admin/withdrawals?limit=${encodeURIComponent(String(limit))}`);
+}
+
+export async function updateAgencyAdminWithdrawal(payload: {
+  id: string;
+  status: "pending" | "approved" | "paid" | "rejected";
+  admin_note?: string;
+}) {
+  return httpRequest<{ ok: boolean; item: AgencyWithdrawalRequest }>("/api/agency/admin/withdrawals", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function fetchSubscriptionPlans() {
+  return httpRequest<SubscriptionPlansResponse>("/api/subscriptions/plans");
+}
+
+export async function createSubscriptionOrder(payload: { tier: string; pay_type: PayType }) {
+  return httpRequest<{ ok: boolean; pending_payment: boolean; tier: string; order: PayOrder }>("/api/subscriptions/orders", {
+    method: "POST",
+    body: payload,
+  });
 }
 
 export async function testBackupConnection() {

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from api.support import require_admin, require_identity, resolve_image_base_url
 from services.backup_service import BackupError, backup_service
 from services.config import config
+from services.email_auth_service import email_auth_service
 from services.image_service import (
     compress_images,
     delete_images,
@@ -58,23 +59,100 @@ class BackupDeleteRequest(BaseModel):
     key: str = ""
 
 
+class EmailRegisterCodeRequest(BaseModel):
+    email: str = ""
+
+
+class EmailRegisterRequest(BaseModel):
+    email: str = ""
+    password: str = ""
+    code: str = ""
+    name: str = ""
+
+
+class EmailLoginRequest(BaseModel):
+    email: str = ""
+    password: str = ""
+
+
 def create_router(app_version: str) -> APIRouter:
     router = APIRouter()
 
     @router.post("/auth/login")
-    async def login(authorization: str | None = Header(default=None)):
+    async def login(body: EmailLoginRequest | None = None, authorization: str | None = Header(default=None)):
+        if body and body.email.strip() and body.password.strip():
+            identity, key = email_auth_service.login(body.email, body.password)
+            return {
+                "ok": True,
+                "version": app_version,
+                "role": identity.get("role"),
+                "role_id": identity.get("role_id"),
+                "role_name": identity.get("role_name"),
+                "subject_id": identity.get("id"),
+                "name": identity.get("name"),
+                "key": key,
+                "menu_paths": identity.get("menu_paths") if isinstance(identity.get("menu_paths"), list) else [],
+                "api_permissions": identity.get("api_permissions") if isinstance(identity.get("api_permissions"), list) else [],
+            }
         identity = require_identity(authorization)
         return {
             "ok": True,
             "version": app_version,
             "role": identity.get("role"),
+            "role_id": identity.get("role_id"),
+            "role_name": identity.get("role_name"),
             "subject_id": identity.get("id"),
             "name": identity.get("name"),
+            "menu_paths": identity.get("menu_paths") if isinstance(identity.get("menu_paths"), list) else [],
+            "api_permissions": identity.get("api_permissions") if isinstance(identity.get("api_permissions"), list) else [],
+        }
+
+    @router.get("/auth/providers")
+    async def get_auth_providers():
+        return email_auth_service.providers()
+
+    @router.post("/auth/register/send-code")
+    async def send_register_code(body: EmailRegisterCodeRequest):
+        try:
+            email_auth_service.send_register_code(body.email)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        return {"ok": True, "expires_in": 600}
+
+    @router.post("/auth/register")
+    async def register_email_account(body: EmailRegisterRequest):
+        try:
+            identity, key = email_auth_service.register(body.email, body.password, body.code, body.name)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail={"error": str(exc)}) from exc
+        return {
+            "ok": True,
+            "version": app_version,
+            "role": identity.get("role"),
+            "role_id": identity.get("role_id"),
+            "role_name": identity.get("role_name"),
+            "subject_id": identity.get("id"),
+            "name": identity.get("name"),
+            "key": key,
+            "menu_paths": identity.get("menu_paths") if isinstance(identity.get("menu_paths"), list) else [],
+            "api_permissions": identity.get("api_permissions") if isinstance(identity.get("api_permissions"), list) else [],
         }
 
     @router.get("/version")
     async def get_version():
         return {"version": app_version}
+
+    @router.get("/api/app-meta")
+    async def get_app_meta():
+        settings = config.get()
+        return {
+            "app_title": str(settings.get("brand_top_left_name") or "GPT生图站"),
+            "project_name": str(settings.get("brand_site_name") or "GPT生图站"),
+            "top_left_logo_url": str(settings.get("brand_top_left_logo_url") or ""),
+            "site_logo_url": str(settings.get("brand_site_logo_url") or ""),
+            "agency_enabled": bool(settings.get("agency_enabled", True)),
+            "subscription_enabled": bool(settings.get("subscription_enabled", True)),
+        }
 
     @router.get("/api/settings")
     async def get_settings(authorization: str | None = Header(default=None)):
@@ -187,7 +265,9 @@ def create_router(app_version: str) -> APIRouter:
     @router.post("/api/image-storage/test")
     async def test_image_storage_endpoint(authorization: str | None = Header(default=None)):
         require_admin(authorization)
-        return {"result": await run_in_threadpool(image_storage_service.test_webdav)}
+        result = await run_in_threadpool(image_storage_service.test_webdav)
+        imgbed_result = await run_in_threadpool(image_storage_service.test_imgbed)
+        return {"result": result, "imgbed_result": imgbed_result}
 
     @router.post("/api/image-storage/sync")
     async def sync_image_storage_endpoint(authorization: str | None = Header(default=None)):

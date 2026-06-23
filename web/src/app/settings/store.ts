@@ -134,6 +134,10 @@ function normalizeConfig(config: SettingsConfig): SettingsConfig {
     : {
       enabled: false,
       mode: "local",
+      imgbed_enabled: false,
+      imgbed_upload_url: "https://img.a686.de/upload",
+      imgbed_auth_code: "",
+      imgbed_upload_channel: "telegram",
       webdav_url: "",
       webdav_username: "",
       webdav_password: "",
@@ -199,6 +203,10 @@ function normalizeConfig(config: SettingsConfig): SettingsConfig {
     image_storage: {
       enabled: Boolean(imageStorage.enabled),
       mode: imageStorageMode,
+      imgbed_enabled: Boolean(imageStorage.imgbed_enabled),
+      imgbed_upload_url: String(imageStorage.imgbed_upload_url || "https://img.a686.de/upload"),
+      imgbed_auth_code: String(imageStorage.imgbed_auth_code || ""),
+      imgbed_upload_channel: String(imageStorage.imgbed_upload_channel || "telegram"),
       webdav_url: String(imageStorage.webdav_url || ""),
       webdav_username: String(imageStorage.webdav_username || ""),
       webdav_password: String(imageStorage.webdav_password || ""),
@@ -313,6 +321,7 @@ type SettingsStore = {
   setBaseUrl: (value: string) => void;
   setGlobalSystemPrompt: (value: string) => void;
   setSensitiveWordsText: (value: string) => void;
+  setConfigField: (key: string, value: unknown) => void;
   setAIReviewField: (key: "enabled" | "base_url" | "api_key" | "model" | "prompt", value: string | boolean) => void;
   setImageStorageField: (key: keyof ImageStorageSettings, value: string | boolean) => void;
   setProxyRuntimeField: <K extends keyof ProxyRuntimeSettings>(key: K, value: ProxyRuntimeSettings[K]) => void;
@@ -468,6 +477,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         image_storage: {
           enabled: Boolean(config.image_storage?.enabled),
           mode: config.image_storage?.enabled && ["webdav", "both"].includes(String(config.image_storage?.mode)) ? config.image_storage.mode : "local",
+          imgbed_enabled: Boolean(config.image_storage?.imgbed_enabled),
+          imgbed_upload_url: String(config.image_storage?.imgbed_upload_url || "https://img.a686.de/upload").trim(),
+          imgbed_auth_code: String(config.image_storage?.imgbed_auth_code || "").trim(),
+          imgbed_upload_channel: String(config.image_storage?.imgbed_upload_channel || "telegram").trim(),
           webdav_url: String(config.image_storage?.webdav_url || "").trim(),
           webdav_username: String(config.image_storage?.webdav_username || "").trim(),
           webdav_password: String(config.image_storage?.webdav_password || "").trim(),
@@ -624,6 +637,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   setSensitiveWordsText: (value) => {
     set((state) => state.config ? { config: { ...state.config, sensitive_words: value.split("\n") } } : {});
+  },
+
+  setConfigField: (key, value) => {
+    set((state) => state.config ? { config: { ...state.config, [key]: value } } : {});
   },
 
   setAIReviewField: (key, value) => {

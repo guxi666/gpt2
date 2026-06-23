@@ -31,6 +31,10 @@ DEFAULT_BACKUP_INCLUDE = {
 DEFAULT_IMAGE_STORAGE = {
     "enabled": False,
     "mode": "local",
+    "imgbed_enabled": False,
+    "imgbed_upload_url": "https://img.a686.de/upload",
+    "imgbed_auth_code": "",
+    "imgbed_upload_channel": "telegram",
     "webdav_url": "",
     "webdav_username": "",
     "webdav_password": "",
@@ -81,6 +85,24 @@ DEFAULT_THIRD_PARTY_APPS = {
         "enabled": False,
         "url": "https://canvas.best",
     },
+}
+
+DEFAULT_BRAND = {
+    "brand_top_left_name": "GPT生图站",
+    "brand_site_name": "GPT生图站",
+    "brand_top_left_logo_url": "",
+    "brand_site_logo_url": "",
+}
+
+DEFAULT_EMAIL_SMTP = {
+    "email_smtp_enabled": False,
+    "email_smtp_host": "",
+    "email_smtp_port": 465,
+    "email_smtp_use_ssl": True,
+    "email_smtp_username": "",
+    "email_smtp_auth_code": "",
+    "email_smtp_from_email": "",
+    "email_smtp_from_name": "GPT生图站",
 }
 
 
@@ -154,6 +176,10 @@ def _normalize_image_storage_settings(value: object) -> dict[str, object]:
     return {
         "enabled": enabled,
         "mode": mode,
+        "imgbed_enabled": _normalize_bool(source.get("imgbed_enabled"), False),
+        "imgbed_upload_url": str(source.get("imgbed_upload_url") or DEFAULT_IMAGE_STORAGE["imgbed_upload_url"]).strip().rstrip("/"),
+        "imgbed_auth_code": str(source.get("imgbed_auth_code") or "").strip(),
+        "imgbed_upload_channel": str(source.get("imgbed_upload_channel") or DEFAULT_IMAGE_STORAGE["imgbed_upload_channel"]).strip(),
         "webdav_url": str(source.get("webdav_url") or "").strip().rstrip("/"),
         "webdav_username": str(source.get("webdav_username") or "").strip(),
         "webdav_password": str(source.get("webdav_password") or "").strip(),
@@ -289,6 +315,9 @@ def _normalize_third_party_apps_settings(value: object) -> dict[str, object]:
 
 
 def _validate_image_storage_settings(settings: dict[str, object]) -> None:
+    if _normalize_bool(settings.get("imgbed_enabled"), False):
+        if not str(settings.get("imgbed_upload_url") or "").strip():
+            raise ValueError("启用外部图床后必须填写上传接口 URL")
     if not _normalize_bool(settings.get("enabled"), False):
         return
     if not str(settings.get("webdav_url") or "").strip():
@@ -541,6 +570,18 @@ class ConfigStore:
 
     def get(self) -> dict[str, object]:
         data = dict(self.data)
+        data["brand_top_left_name"] = str(self.data.get("brand_top_left_name") or DEFAULT_BRAND["brand_top_left_name"]).strip() or DEFAULT_BRAND["brand_top_left_name"]
+        data["brand_site_name"] = str(self.data.get("brand_site_name") or DEFAULT_BRAND["brand_site_name"]).strip() or DEFAULT_BRAND["brand_site_name"]
+        data["brand_top_left_logo_url"] = str(self.data.get("brand_top_left_logo_url") or DEFAULT_BRAND["brand_top_left_logo_url"]).strip()
+        data["brand_site_logo_url"] = str(self.data.get("brand_site_logo_url") or DEFAULT_BRAND["brand_site_logo_url"]).strip()
+        data["email_smtp_enabled"] = _normalize_bool(self.data.get("email_smtp_enabled"), DEFAULT_EMAIL_SMTP["email_smtp_enabled"])
+        data["email_smtp_host"] = str(self.data.get("email_smtp_host") or DEFAULT_EMAIL_SMTP["email_smtp_host"]).strip()
+        data["email_smtp_port"] = _normalize_positive_int(self.data.get("email_smtp_port"), int(DEFAULT_EMAIL_SMTP["email_smtp_port"]), 1)
+        data["email_smtp_use_ssl"] = _normalize_bool(self.data.get("email_smtp_use_ssl"), DEFAULT_EMAIL_SMTP["email_smtp_use_ssl"])
+        data["email_smtp_username"] = str(self.data.get("email_smtp_username") or DEFAULT_EMAIL_SMTP["email_smtp_username"]).strip()
+        data["email_smtp_auth_code"] = str(self.data.get("email_smtp_auth_code") or DEFAULT_EMAIL_SMTP["email_smtp_auth_code"]).strip()
+        data["email_smtp_from_email"] = str(self.data.get("email_smtp_from_email") or DEFAULT_EMAIL_SMTP["email_smtp_from_email"]).strip()
+        data["email_smtp_from_name"] = str(self.data.get("email_smtp_from_name") or DEFAULT_EMAIL_SMTP["email_smtp_from_name"]).strip() or DEFAULT_EMAIL_SMTP["email_smtp_from_name"]
         data["refresh_account_interval_minute"] = self.refresh_account_interval_minute
         data["image_retention_days"] = self.image_retention_days
         data["image_poll_timeout_secs"] = self.image_poll_timeout_secs
