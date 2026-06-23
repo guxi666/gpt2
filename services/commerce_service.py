@@ -12,6 +12,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from services.config import DATA_DIR
+from services.config import config
 
 
 def _now() -> datetime:
@@ -54,6 +55,16 @@ def _sanitize_identity(identity: dict[str, Any]) -> dict[str, str]:
         "role": str(identity.get("role") or "").strip(),
         "name": str(identity.get("name") or "").strip(),
     }
+
+
+def _apply_subscription_state(profile: dict[str, Any]) -> dict[str, Any]:
+    current = dict(profile)
+    expire_at = _parse_iso(current.get("subscription_expire_at"))
+    tier = str(current.get("subscription_tier") or "").strip()
+    active = bool(expire_at and expire_at > _now() and tier)
+    current["subscription_active"] = active
+    current["subscription_expire_at"] = _to_iso(expire_at)
+    return current
 
 
 @dataclass
@@ -152,18 +163,94 @@ class CommerceService:
                 "last_login_at": str(current.get("last_login_at") or "").strip() or _now_iso(),
                 "updated_at": _now_iso(),
             }
+            profile = _apply_subscription_state(profile)
             profiles[user_id] = profile
             self._save_profiles(profiles)
             return copy.deepcopy(profile)
 
+    def grant_signup_bonus(self, identity: dict[str, Any]) -> dict[str, Any]:
+        gift_count = int(config.get().get("register_gift_image_count") or 0)
+        image_price_cents = int(config.get().get("image_price_cents") or 0)
+        amount_cents = max(0, gift_count) * max(0, image_price_cents)
+        if amount_cents <= 0:
+            return self.ensure_profile(identity)
+        subject = _sanitize_identity(identity)
+        with self._lock:
+            profiles = self._load_profiles()
+            profile = profiles.get(subject["id"]) or self.ensure_profile(identity)
+            if bool(profile.get("signup_bonus_granted")):
+                return copy.deepcopy(profile)
+            profile["balance_cents"] = int(profile.get("balance_cents") or 0) + amount_cents
+            profile["total_recharge_cents"] = int(profile.get("total_recharge_cents") or 0) + amount_cents
+            profile["signup_bonus_granted"] = True
+            profile["updated_at"] = _now_iso()
+            profiles[subject["id"]] = profile
+            self._save_profiles(profiles)
+            orders = self._load_orders()
+            orders.append({
+                "id": secrets.token_hex(8),
+                "record_type": "transaction",
+                "type": "signup_bonus",
+                "order_kind": "signup_bonus",
+                "provider": "system",
+                "status": "paid",
+                "user_id": subject["id"],
+                "user_display": str(profile.get("name") or subject["id"]),
+                "pay_type": "bonus",
+                "amount_cents": amount_cents,
+                "amount_yuan": f"{amount_cents / 100:.2f}",
+                "balance_after_cents": int(profile.get("balance_cents") or 0),
+                "note": f"register gift {gift_count} image credits",
+                "created_at": _now_iso(),
+                "updated_at": _now_iso(),
+                "paid_at": _now_iso(),
+            })
+            self._save_orders(orders)
+            return copy.deepcopy(_apply_subscription_state(profile))
+
+    def charge_usage(self, identity: dict[str, Any], *, usage_type: str, amount_cents: int, note: str = "") -> dict[str, Any]:
+        subject = _sanitize_identity(identity)
+        if subject["role"] == "admin" or amount_cents <= 0:
+            return self.ensure_profile(identity)
+        with self._lock:
+            profiles = self._load_profiles()
+            profile = _apply_subscription_state(profiles.get(subject["id"]) or self.ensure_profile(identity))
+            subscription_active = bool(profile.get("subscription_active"))
+            if usage_type == "image" and subscription_active:
+                return copy.deepcopy(profile)
+            current_balance = int(profile.get("balance_cents") or 0)
+            if current_balance < amount_cents:
+                raise ValueError("insufficient balance")
+            profile["balance_cents"] = current_balance - amount_cents
+            profile["total_consume_cents"] = int(profile.get("total_consume_cents") or 0) + amount_cents
+            profile["updated_at"] = _now_iso()
+            profiles[subject["id"]] = profile
+            self._save_profiles(profiles)
+            orders = self._load_orders()
+            orders.append({
+                "id": secrets.token_hex(8),
+                "record_type": "transaction",
+                "type": f"{usage_type}_usage",
+                "order_kind": f"{usage_type}_usage",
+                "provider": "usage",
+                "status": "paid",
+                "user_id": subject["id"],
+                "user_display": str(profile.get("name") or subject["id"]),
+                "pay_type": "balance",
+                "amount_cents": -amount_cents,
+                "amount_yuan": f"{-amount_cents / 100:.2f}",
+                "balance_after_cents": int(profile.get("balance_cents") or 0),
+                "note": note or f"{usage_type} usage",
+                "created_at": _now_iso(),
+                "updated_at": _now_iso(),
+                "paid_at": _now_iso(),
+            })
+            self._save_orders(orders)
+            return copy.deepcopy(_apply_subscription_state(profile))
+
     def get_wallet(self, identity: dict[str, Any]) -> dict[str, Any]:
         profile = self.ensure_profile(identity)
-        expire_at = _parse_iso(profile.get("subscription_expire_at"))
-        active = bool(expire_at and expire_at > _now() and profile.get("subscription_tier"))
-        profile["subscription_active"] = active
-        if expire_at:
-            profile["subscription_expire_at"] = _to_iso(expire_at)
-        return profile
+        return _apply_subscription_state(profile)
 
     def import_legacy_profile(self, raw_user: dict[str, Any]) -> dict[str, Any]:
         user_id = str(raw_user.get("id") or "").strip()
@@ -409,7 +496,7 @@ class CommerceService:
             profiles = self._load_profiles()
         items = list(profiles.values())
         items.sort(key=lambda item: str(item.get("updated_at") or ""), reverse=True)
-        return [copy.deepcopy(item) for item in items]
+        return [copy.deepcopy(_apply_subscription_state(item)) for item in items]
 
     def update_balance(
         self,

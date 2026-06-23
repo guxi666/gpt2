@@ -162,6 +162,7 @@ def create_router(app_version: str) -> APIRouter:
             "project_name": str(settings.get("brand_site_name") or "GPT生图站"),
             "top_left_logo_url": str(settings.get("brand_top_left_logo_url") or ""),
             "site_logo_url": str(settings.get("brand_site_logo_url") or ""),
+            "login_hero_image_url": str(settings.get("brand_login_hero_image_url") or ""),
             "agency_enabled": bool(settings.get("agency_enabled", True)),
             "subscription_enabled": bool(settings.get("subscription_enabled", True)),
         }

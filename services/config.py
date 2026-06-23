@@ -92,6 +92,7 @@ DEFAULT_BRAND = {
     "brand_site_name": "GPT生图站",
     "brand_top_left_logo_url": "",
     "brand_site_logo_url": "",
+    "brand_login_hero_image_url": "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png",
 }
 
 DEFAULT_EMAIL_SMTP = {
@@ -103,6 +104,12 @@ DEFAULT_EMAIL_SMTP = {
     "email_smtp_auth_code": "",
     "email_smtp_from_email": "",
     "email_smtp_from_name": "GPT生图站",
+}
+
+DEFAULT_PRICING = {
+    "register_gift_image_count": 10,
+    "image_price_cents": 8,
+    "chat_price_cents": 8,
 }
 
 
@@ -574,6 +581,10 @@ class ConfigStore:
         data["brand_site_name"] = str(self.data.get("brand_site_name") or DEFAULT_BRAND["brand_site_name"]).strip() or DEFAULT_BRAND["brand_site_name"]
         data["brand_top_left_logo_url"] = str(self.data.get("brand_top_left_logo_url") or DEFAULT_BRAND["brand_top_left_logo_url"]).strip()
         data["brand_site_logo_url"] = str(self.data.get("brand_site_logo_url") or DEFAULT_BRAND["brand_site_logo_url"]).strip()
+        data["brand_login_hero_image_url"] = str(self.data.get("brand_login_hero_image_url") or DEFAULT_BRAND["brand_login_hero_image_url"]).strip() or DEFAULT_BRAND["brand_login_hero_image_url"]
+        data["register_gift_image_count"] = _normalize_positive_int(self.data.get("register_gift_image_count"), int(DEFAULT_PRICING["register_gift_image_count"]), 0)
+        data["image_price_cents"] = _normalize_positive_int(self.data.get("image_price_cents"), int(DEFAULT_PRICING["image_price_cents"]), 0)
+        data["chat_price_cents"] = _normalize_positive_int(self.data.get("chat_price_cents"), int(DEFAULT_PRICING["chat_price_cents"]), 0)
         data["email_smtp_enabled"] = _normalize_bool(self.data.get("email_smtp_enabled"), DEFAULT_EMAIL_SMTP["email_smtp_enabled"])
         data["email_smtp_host"] = str(self.data.get("email_smtp_host") or DEFAULT_EMAIL_SMTP["email_smtp_host"]).strip()
         data["email_smtp_port"] = _normalize_positive_int(self.data.get("email_smtp_port"), int(DEFAULT_EMAIL_SMTP["email_smtp_port"]), 1)

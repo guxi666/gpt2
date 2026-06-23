@@ -32,6 +32,27 @@ export function PaymentSettingsCard() {
         </Button>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Input
+            value={String(config?.register_gift_image_count || "")}
+            onChange={(event) => setConfigField("register_gift_image_count", event.target.value)}
+            placeholder="新用户注册送次数，默认 10"
+            className="h-10 rounded-xl border-stone-200 bg-white"
+          />
+          <Input
+            value={String(config?.image_price_cents || "")}
+            onChange={(event) => setConfigField("image_price_cents", event.target.value)}
+            placeholder="单次生图消耗（分），默认 8"
+            className="h-10 rounded-xl border-stone-200 bg-white"
+          />
+          <Input
+            value={String(config?.chat_price_cents || "")}
+            onChange={(event) => setConfigField("chat_price_cents", event.target.value)}
+            placeholder="单次对话消耗（分），默认 8"
+            className="h-10 rounded-xl border-stone-200 bg-white"
+          />
+        </div>
+
         <div className="rounded-xl border border-stone-200 bg-white p-4">
           <label className="flex items-center gap-3 text-sm text-stone-700">
             <Checkbox

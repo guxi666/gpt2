@@ -46,7 +46,7 @@ export function SiteBrandCard() {
         <Input
           value={String(config?.brand_top_left_logo_url || "")}
           onChange={(event) => setConfigField("brand_top_left_logo_url", event.target.value)}
-          placeholder="左上角图标 URL"
+          placeholder="左上角 Logo URL"
           className="h-10 rounded-xl border-stone-200 bg-white"
         />
         <Input
@@ -54,6 +54,12 @@ export function SiteBrandCard() {
           onChange={(event) => setConfigField("brand_site_logo_url", event.target.value)}
           placeholder="站点图标 URL"
           className="h-10 rounded-xl border-stone-200 bg-white"
+        />
+        <Input
+          value={String(config?.brand_login_hero_image_url || "")}
+          onChange={(event) => setConfigField("brand_login_hero_image_url", event.target.value)}
+          placeholder="登录页右侧背景图 URL"
+          className="h-10 rounded-xl border-stone-200 bg-white md:col-span-2"
         />
       </CardContent>
     </Card>

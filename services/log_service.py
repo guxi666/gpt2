@@ -14,7 +14,8 @@ from fastapi import HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from services.config import DATA_DIR
+from services.config import DATA_DIR, config
+from services.commerce_service import commerce_service
 from services.protocol.error_response import anthropic_error_response, openai_error_response
 from utils.helper import anthropic_sse_stream, sse_json_stream
 
@@ -224,6 +225,25 @@ class LoggedCall:
     request_text: str = ""
     request_shape: dict[str, int] | None = None
 
+    def _usage_charge(self) -> tuple[str, int]:
+        settings = config.get()
+        if self.endpoint.startswith("/v1/images"):
+            return "image", int(settings.get("image_price_cents") or 0)
+        if self.endpoint in {"/v1/chat/completions", "/v1/responses", "/v1/messages"}:
+            return "chat", int(settings.get("chat_price_cents") or 0)
+        return "", 0
+
+    def _charge_on_success(self) -> None:
+        usage_type, amount_cents = self._usage_charge()
+        if not usage_type or amount_cents <= 0:
+            return
+        commerce_service.charge_usage(
+            dict(self.identity),
+            usage_type=usage_type,
+            amount_cents=amount_cents,
+            note=f"{self.summary} balance charge",
+        )
+
     async def run(self, handler, *args, sse: str = "openai"):
         from services.protocol.conversation import ImageGenerationError
 
@@ -243,6 +263,11 @@ class LoggedCall:
             return _protocol_error_response(exc, 502, sse)
 
         if isinstance(result, dict):
+            try:
+                self._charge_on_success()
+            except ValueError as exc:
+                self.log("调用失败", status="failed", error=str(exc))
+                raise HTTPException(status_code=402, detail={"error": str(exc)}) from exc
             self.log("调用完成", result)
             response = dict(result)
             response.pop("_account_email", None)
@@ -296,6 +321,11 @@ class LoggedCall:
             raise
         finally:
             if not failed:
+                try:
+                    self._charge_on_success()
+                except ValueError as exc:
+                    self.log("流式调用失败", status="failed", error=str(exc))
+                    raise HTTPException(status_code=402, detail={"error": str(exc)}) from exc
                 self.log("流式调用结束", urls=urls, account_email=account_emails[0] if account_emails else "",
                          conversation_id=conversation_ids[0] if conversation_ids else "")
 

@@ -10,6 +10,7 @@ from threading import Lock
 from typing import Any
 
 from services.auth_service import auth_service
+from services.commerce_service import commerce_service
 from services.config import DATA_DIR, config
 from services.role_service import DEFAULT_ROLE_ID, role_service
 
@@ -170,6 +171,7 @@ class EmailAuthService:
             }
             users.append(user)
             self._save_users(users)
+            commerce_service.grant_signup_bonus(auth_item)
             return auth_item, raw_key
 
     def login(self, email: str, password: str) -> tuple[dict[str, Any], str]:

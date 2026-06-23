@@ -163,6 +163,10 @@ export type SettingsConfig = {
   brand_site_name?: string;
   brand_top_left_logo_url?: string;
   brand_site_logo_url?: string;
+  brand_login_hero_image_url?: string;
+  register_gift_image_count?: number | string;
+  image_price_cents?: number | string;
+  chat_price_cents?: number | string;
   email_smtp_enabled?: boolean;
   email_smtp_host?: string;
   email_smtp_port?: number | string;
@@ -664,6 +668,7 @@ export type AppMeta = {
   project_name: string;
   top_left_logo_url: string;
   site_logo_url: string;
+  login_hero_image_url?: string;
   agency_enabled?: boolean;
   subscription_enabled?: boolean;
 };

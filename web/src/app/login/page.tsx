@@ -118,35 +118,15 @@ export default function LoginPage() {
   const allowedDomains = providers?.allowed_email_domains || [];
   const projectTitle = appMeta.project_name || "GPT生图站";
   const brandTitle = appMeta.app_title || projectTitle;
+  const loginHeroImage =
+    appMeta.login_hero_image_url ||
+    "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png";
 
   return (
     <div className="grid min-h-[calc(100vh-1rem)] w-full place-items-center px-4 py-6">
       <HeaderActions className="fixed top-4 right-4 z-10" />
-      <div className="grid w-full max-w-[980px] gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="hidden rounded-[34px] border border-white/70 bg-[linear-gradient(160deg,rgba(17,24,39,0.96),rgba(41,37,36,0.9))] p-8 text-white shadow-[0_30px_120px_rgba(15,23,42,0.24)] lg:flex lg:flex-col lg:justify-between">
-          <div className="space-y-6">
-            <div className="inline-flex w-fit items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm">
-              <Sparkles className="size-4" />
-              AI 图像工作台
-            </div>
-            <div className="space-y-4">
-              <h1 className="text-4xl font-semibold leading-tight">{projectTitle}</h1>
-              <p className="max-w-[34ch] text-sm leading-7 text-white/70">
-                密钥登录适合管理员和接口调用，邮箱登录适合普通用户。登录后可继续使用生图、充值、代理和套餐能力。
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-3 text-sm text-white/75">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              注册邮箱可限制后缀，减少垃圾账号和异常来源。
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-              品牌名称和 logo 会跟随后台配置动态同步。
-            </div>
-          </div>
-        </div>
-
-        <Card className="w-full rounded-[30px] border-white/80 bg-white/95 shadow-[0_28px_90px_rgba(28,25,23,0.10)]">
+      <div className="grid w-full max-w-[930px] overflow-hidden rounded-[34px] border border-white/80 bg-white/95 shadow-[0_28px_90px_rgba(28,25,23,0.10)] lg:grid-cols-[0.96fr_1.04fr]">
+        <Card className="rounded-none border-0 bg-transparent shadow-none">
           <CardContent className="space-y-7 p-6 sm:p-8">
             <div className="space-y-4 text-center">
               <div className="mx-auto inline-flex size-16 items-center justify-center rounded-[20px] bg-stone-950 text-white shadow-sm">
@@ -218,6 +198,36 @@ export default function LoginPage() {
             </Button>
           </CardContent>
         </Card>
+        <div
+          className="relative hidden min-h-[720px] overflow-hidden border-l border-stone-100 lg:flex lg:flex-col lg:justify-between"
+          style={{
+            backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08)), url(${loginHeroImage})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.84),rgba(255,255,255,0.18)_40%,rgba(255,255,255,0.08)_100%)]" />
+          <div className="relative z-10 flex h-full flex-col justify-between p-8">
+            <div className="inline-flex w-fit items-center gap-3 rounded-full border border-white/60 bg-white/60 px-4 py-2 text-sm text-stone-700 shadow-sm backdrop-blur">
+              <Sparkles className="size-4 text-violet-500" />
+              GPT-Image Control
+            </div>
+            <div className="max-w-[22rem] rounded-[28px] border border-white/55 bg-white/48 p-6 text-stone-800 shadow-[0_20px_70px_rgba(148,163,184,0.16)] backdrop-blur-md">
+              <div className="text-4xl font-semibold tracking-tight text-violet-600">GPT-Image2</div>
+              <p className="mt-3 text-sm leading-7 text-stone-600">
+                AI 生图、想象即创作。品牌名称、logo 和登录页右侧背景图都支持在后台直接修改。
+              </p>
+              <div className="mt-5 grid gap-3 text-sm text-stone-600">
+                <div className="rounded-2xl border border-white/65 bg-white/60 px-4 py-3">
+                  注册邮箱可限制后缀，减少垃圾账号和异常来源。
+                </div>
+                <div className="rounded-2xl border border-white/65 bg-white/60 px-4 py-3">
+                  管理员可统一控制生图、充值、代理和套餐入口显示。
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
