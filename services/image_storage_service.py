@@ -116,6 +116,12 @@ class ImgBedClient:
             return self.upload_url
         return f"{self.upload_url}?{urlencode(query)}"
 
+    def _base_origin(self) -> str:
+        parsed = urlparse(self.upload_url)
+        if not parsed.scheme or not parsed.netloc:
+            return ""
+        return f"{parsed.scheme}://{parsed.netloc}"
+
     def put(self, rel: str, payload: bytes, content_type: str = "image/png") -> str:
         if not self.ready():
             raise ImageStorageError("external image bed is not configured")
@@ -130,7 +136,7 @@ class ImgBedClient:
         response = self.session.post(self._request_url(), multipart=multipart, timeout=30)
         if response.status_code < 200 or response.status_code >= 300:
             raise ImageStorageError(f"external image bed upload failed: HTTP {response.status_code} {response.text[:300]}")
-        public_url = self._extract_url(response.content)
+        public_url = self._extract_url(response.content, self._base_origin())
         if not public_url:
             raise ImageStorageError("external image bed upload succeeded but no URL was found in response")
         return public_url
@@ -148,11 +154,23 @@ class ImgBedClient:
             self.session.close()
 
     @staticmethod
-    def _extract_url(data: bytes) -> str:
+    def _extract_url(data: bytes, base_origin: str = "") -> str:
         try:
             payload = json.loads(data.decode("utf-8"))
         except Exception:
             return ""
+        if isinstance(payload, list):
+            for item in payload:
+                if isinstance(item, dict):
+                    value = str(item.get("src") or item.get("url") or "").strip()
+                    if value:
+                        if value.startswith(("http://", "https://")):
+                            return value
+                        if value.startswith("//"):
+                            return "https:" + value
+                        if value.startswith("/") and base_origin:
+                            return base_origin.rstrip("/") + value
+                        return value
         for path in ("url", "src", "data.url", "data.src", "result.url", "result.src", "images.0.url", "images.0.src"):
             value = ImgBedClient._lookup_by_path(payload, path)
             if value:
@@ -161,6 +179,8 @@ class ImgBedClient:
                     return value
                 if value.startswith("//"):
                     return "https:" + value
+                if value.startswith("/") and base_origin:
+                    return base_origin.rstrip("/") + value
                 return value
         return ""
 

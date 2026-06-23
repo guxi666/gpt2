@@ -11,8 +11,8 @@ const defaultAppMeta: AppMeta = {
   top_left_logo_url: "",
   site_logo_url: "",
   login_hero_image_url: "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png",
-  agency_enabled: true,
-  subscription_enabled: true,
+  agency_enabled: false,
+  subscription_enabled: false,
 };
 
 export function useAppMeta() {
