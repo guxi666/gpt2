@@ -35,8 +35,8 @@ docker compose up -d
 
 仓库已经支持推送到 `main` 后自动由 GitHub Actions 构建并推送镜像到 GHCR：
 
-- `ghcr.io/basketikun/chatgpt2api:latest`
-- `ghcr.io/basketikun/chatgpt2api:sha-<commit>`
+- `ghcr.io/guxi666/gpt2:latest`
+- `ghcr.io/guxi666/gpt2:sha-<commit>`
 
 服务器无需本地构建，只需要拉镜像运行：
 
@@ -49,7 +49,7 @@ docker compose up -d
 如果你想固定某个 commit 镜像，也可以在 `.env` 或 shell 中指定：
 
 ```bash
-CHATGPT2API_RUNTIME_IMAGE=ghcr.io/basketikun/chatgpt2api:sha-<commit>
+CHATGPT2API_RUNTIME_IMAGE=ghcr.io/guxi666/gpt2:sha-<commit>
 docker compose up -d
 ```
 
@@ -96,7 +96,7 @@ bun run dev
 后续更新新版本：
 
 ```bash
-docker pull ghcr.io/basketikun/chatgpt2api:latest
+docker pull ghcr.io/guxi666/gpt2:latest
 docker-compose down
 docker-compose up -d
 
