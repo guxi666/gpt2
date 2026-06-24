@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { compressAllImages, deleteImageTag, deleteManagedImages, deleteToTarget, downloadImages, downloadSingleImage, fetchImageStorage, fetchImageTags, fetchManagedImages, setImageTags, type ImageStorageStats, type ManagedImage } from "@/lib/api";
 import { formatBeijingDateTime } from "@/lib/time";
 import { useAuthGuard } from "@/lib/use-auth-guard";
+import { canAccessPath } from "@/store/auth";
 
 const LONG_PRESS_MS = 800;
 const IMAGE_MANAGER_CHECKBOX_CLASS = "border-stone-300 bg-white/80 dark:border-white/35 dark:bg-white/5 data-[state=checked]:border-stone-950 dark:data-[state=checked]:border-white";
@@ -742,6 +743,9 @@ export default function ImageManagerPage() {
   const { isCheckingAuth, session } = useAuthGuard();
   if (isCheckingAuth || !session) {
     return <div className="flex min-h-[40vh] items-center justify-center"><LoaderCircle className="size-5 animate-spin text-stone-400" /></div>;
+  }
+  if (session.role !== "admin" && !canAccessPath(session, "/image-manager")) {
+    return <div className="flex min-h-[40vh] items-center justify-center text-sm text-stone-500">当前账号没有图片库权限</div>;
   }
   return <ImageManagerContent isAdmin={session.role === "admin"} />;
 }
