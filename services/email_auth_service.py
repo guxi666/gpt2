@@ -4,14 +4,15 @@ import hashlib
 import hmac
 import json
 import secrets
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from threading import Lock
+from threading import RLock
 from typing import Any
 
 from services.auth_service import auth_service
 from services.commerce_service import commerce_service
-from services.config import DATA_DIR, config
+from services.config import BASE_DIR, DATA_DIR, config
 from services.role_service import DEFAULT_ROLE_ID, role_service
 
 try:
@@ -62,7 +63,7 @@ def _normalize_allowed_email(email: str) -> str:
 
 class EmailAuthService:
     def __init__(self) -> None:
-        self._lock = Lock()
+        self._lock = RLock()
         self._users_path = DATA_DIR / "email_auth_users.json"
         self._codes_path = DATA_DIR / "email_auth_codes.json"
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -180,6 +181,11 @@ class EmailAuthService:
             users = self._load_users()
             user = next((item for item in users if self._matches_login_identity(item, normalized_identity)), None)
             if user is None:
+                legacy_user = self._restore_legacy_user(normalized_identity)
+                if legacy_user is not None:
+                    users = self._load_users()
+                    user = next((item for item in users if self._matches_login_identity(item, normalized_identity)), None)
+            if user is None:
                 raise ValueError("email or password is invalid")
             if not bool(user.get("enabled", True)):
                 raise ValueError("user is disabled")
@@ -206,6 +212,17 @@ class EmailAuthService:
             user["updated_at"] = _now_iso()
             self._save_users(users)
             return auth_item, raw_key
+
+    def _restore_legacy_user(self, identity: str) -> dict[str, Any] | None:
+        raw_user = self._find_legacy_user(identity)
+        if raw_user is None:
+            return None
+        try:
+            self.import_legacy_user(raw_user)
+            commerce_service.import_legacy_profile(raw_user)
+        except Exception:
+            return None
+        return raw_user
 
     def import_legacy_user(self, raw_user: dict[str, Any]) -> None:
         email = _clean(raw_user.get("email")).lower()
@@ -242,8 +259,96 @@ class EmailAuthService:
             enabled=bool(raw_user.get("enabled", True)),
             provider="email",
             menu_paths=role.get("menu_paths") if isinstance(role.get("menu_paths"), list) else [],
-            api_permissions=role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else [],
+            api_permissions=role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else [],        
         )
+
+    def _find_legacy_user(self, identity: str) -> dict[str, Any] | None:
+        normalized = _clean(identity).lower()
+        if not normalized:
+            return None
+        for source in self._legacy_source_candidates():
+            raw_user = self._find_legacy_user_from_source(source, normalized)
+            if raw_user is not None:
+                return raw_user
+        return None
+
+    @staticmethod
+    def _legacy_source_candidates() -> list[Path]:
+        return [
+            BASE_DIR / "chatgpt2api.db",
+            DATA_DIR / "chatgpt2api.db",
+            BASE_DIR / "billing.json",
+            DATA_DIR / "billing.json",
+            BASE_DIR / "auth_users.json",
+            DATA_DIR / "auth_users.json",
+        ]
+
+    def _find_legacy_user_from_source(self, source: Path, identity: str) -> dict[str, Any] | None:
+        if not source.exists() or source.is_dir():
+            return None
+        suffix = source.suffix.lower()
+        if suffix in {".db", ".sqlite", ".sqlite3"}:
+            return self._find_legacy_user_from_sqlite(source, identity)
+        return self._find_legacy_user_from_json(source, identity)
+
+    def _find_legacy_user_from_json(self, source: Path, identity: str) -> dict[str, Any] | None:
+        payload = self._load_json(source, None)
+        if not payload:
+            return None
+        if source.name == "auth_users.json":
+            return self._find_match_in_auth_users(payload, identity)
+        if source.name == "billing.json":
+            return self._find_match_in_billing_users(payload, identity)
+        return None
+
+    def _find_legacy_user_from_sqlite(self, source: Path, identity: str) -> dict[str, Any] | None:
+        con = sqlite3.connect(str(source))
+        try:
+            cur = con.execute("SELECT name, data FROM json_documents WHERE name IN ('auth_users.json', 'billing.json')")
+            auth_payload = None
+            billing_payload = None
+            for name, data in cur.fetchall():
+                if name == "auth_users.json":
+                    auth_payload = json.loads(data)
+                elif name == "billing.json":
+                    billing_payload = json.loads(data)
+            return (
+                self._find_match_in_auth_users(auth_payload, identity)
+                or self._find_match_in_billing_users(billing_payload, identity)
+            )
+        except Exception:
+            return None
+        finally:
+            con.close()
+
+    def _find_match_in_auth_users(self, payload: Any, identity: str) -> dict[str, Any] | None:
+        items = payload.get("items") if isinstance(payload, dict) and isinstance(payload.get("items"), list) else payload if isinstance(payload, list) else []
+        for raw_user in items:
+            if not isinstance(raw_user, dict):
+                continue
+            if self._matches_login_identity(raw_user, identity):
+                return raw_user
+        return None
+
+    def _find_match_in_billing_users(self, payload: Any, identity: str) -> dict[str, Any] | None:
+        items = payload.get("users") if isinstance(payload, dict) and isinstance(payload.get("users"), list) else []
+        for raw_user in items:
+            if not isinstance(raw_user, dict):
+                continue
+            password_hash = _clean(raw_user.get("password_hash"))
+            if not password_hash or password_hash == "local-user":
+                continue
+            if not self._matches_login_identity(raw_user, identity):
+                continue
+            return {
+                **raw_user,
+                "username": _clean(raw_user.get("username")) or _clean(raw_user.get("email")).lower(),
+                "name": _clean(raw_user.get("name")) or _clean(raw_user.get("email")).lower(),
+                "email": _clean(raw_user.get("email")).lower(),
+                "role_id": _clean(raw_user.get("role_id")) or DEFAULT_ROLE_ID,
+                "role": "user",
+            }
+        return None
 
     def list_managed_users(self) -> list[dict[str, Any]]:
         role_map = {str(item.get("id") or "").strip(): item for item in role_service.list_roles()}
