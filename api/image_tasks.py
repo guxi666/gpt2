@@ -15,6 +15,7 @@ class ImageGenerationTaskRequest(BaseModel):
     client_task_id: str = Field(..., min_length=1)
     prompt: str = Field(..., min_length=1)
     model: str = "gpt-image-2"
+    n: int = Field(default=1, ge=1, le=10)
     size: str | None = None
     quality: str = "auto"
 
@@ -61,6 +62,7 @@ def create_router() -> APIRouter:
                 client_task_id=body.client_task_id,
                 prompt=body.prompt,
                 model=body.model,
+                n=body.n,
                 size=body.size,
                 quality=body.quality,
                 base_url=resolve_image_base_url(request),

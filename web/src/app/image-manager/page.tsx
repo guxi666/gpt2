@@ -23,6 +23,25 @@ function formatSize(size: number) {
   return size > 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(2)} MB` : `${Math.ceil(size / 1024)} KB`;
 }
 
+function formatBeijingDateTime(value?: string | null) {
+  if (!value) return "-";
+  const normalized = String(value).replace(" ", "T");
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 function imageKey(item: ManagedImage) {
   return item.rel || item.url;
 }
@@ -57,7 +76,7 @@ function useLongPress(onLongPress: () => void, ms = LONG_PRESS_MS) {
   };
 }
 
-function ImageManagerContent() {
+function ImageManagerContent({ isAdmin }: { isAdmin: boolean }) {
   const [items, setItems] = useState<ManagedImage[]>([]);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -75,13 +94,14 @@ function ImageManagerContent() {
   const [targetFreeMb, setTargetFreeMb] = useState(500);
 
   const loadStorage = useCallback(async () => {
+    if (!isAdmin) return;
     try {
       setStorageLoading(true);
       const data = await fetchImageStorage();
       setStorage(data);
     } catch { /* ignore */ }
     finally { setStorageLoading(false); }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => { void loadStorage(); }, [loadStorage]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -119,10 +139,8 @@ function ImageManagerContent() {
   const loadImages = async () => {
     setIsLoading(true);
     try {
-      const [data, tagsData] = await Promise.all([
-        fetchManagedImages({ start_date: startDate, end_date: endDate }),
-        fetchImageTags(),
-      ]);
+      const data = await fetchManagedImages({ start_date: startDate, end_date: endDate });
+      const tagsData = isAdmin ? await fetchImageTags() : { tags: [] };
       setItems(data.items);
       setAllTags(tagsData.tags);
       setSelectedPaths((current) => current.filter((path) => data.items.some((item) => imageKey(item) === path)));
@@ -527,7 +545,7 @@ function ImageManagerContent() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1 font-medium text-stone-700">
                       <CalendarDays className="size-3.5" />
-                      {item.created_at}
+                      {formatBeijingDateTime(item.created_at)}
                     </div>
                     <div className="flex items-center gap-1">
                       <Button
@@ -739,9 +757,9 @@ function ImageManagerContent() {
 }
 
 export default function ImageManagerPage() {
-  const { isCheckingAuth, session } = useAuthGuard(["admin"]);
-  if (isCheckingAuth || !session || session.role !== "admin") {
+  const { isCheckingAuth, session } = useAuthGuard(undefined, "/image-manager");
+  if (isCheckingAuth || !session) {
     return <div className="flex min-h-[40vh] items-center justify-center"><LoaderCircle className="size-5 animate-spin text-stone-400" /></div>;
   }
-  return <ImageManagerContent />;
+  return <ImageManagerContent isAdmin={session.role === "admin"} />;
 }

@@ -150,11 +150,12 @@ def cleanup_image_thumbnails() -> int:
     _cleanup_empty_dirs(thumbnails_root)
     return removed
 
-def list_images(base_url: str, start_date: str = "", end_date: str = "") -> dict[str, object]:
+def list_images(base_url: str, start_date: str = "", end_date: str = "", owner_id: str = "") -> dict[str, object]:
     config.cleanup_old_images()
     cleanup_image_thumbnails()
     all_tags = load_tags()
-    creator_map = _load_image_creators(base_url)
+    indexed_items = image_storage_service.list_items(base_url, start_date, end_date)
+    creator_map = _load_image_creators(base_url, indexed_items)
     items = [
         {
             **item,
@@ -163,16 +164,28 @@ def list_images(base_url: str, start_date: str = "", end_date: str = "") -> dict
             "tags": all_tags.get(str(item["path"]), []),
             **creator_map.get(str(item["path"]), {}),
         }
-        for item in image_storage_service.list_items(base_url, start_date, end_date)
+        for item in indexed_items
     ]
+    if owner_id.strip():
+        items = [item for item in items if str(item.get("creator_id") or "").strip() == owner_id.strip()]
     groups: dict[str, list[dict[str, object]]] = {}
     for item in items:
         groups.setdefault(str(item["date"]), []).append(item)
     return {"items": items, "groups": [{"date": key, "items": value} for key, value in groups.items()]}
 
 
-def _load_image_creators(base_url: str) -> dict[str, dict[str, str]]:
+def _load_image_creators(base_url: str, indexed_items: list[dict[str, object]]) -> dict[str, dict[str, str]]:
     mapping: dict[str, dict[str, str]] = {}
+    by_public_url = {
+        str(item.get("url") or "").strip(): str(item.get("path") or "").strip()
+        for item in indexed_items
+        if str(item.get("url") or "").strip() and str(item.get("path") or "").strip()
+    }
+    by_imgbed_url = {
+        str(item.get("imgbed_url") or "").strip(): str(item.get("path") or "").strip()
+        for item in indexed_items
+        if str(item.get("imgbed_url") or "").strip() and str(item.get("path") or "").strip()
+    }
     if not log_service.path.exists():
         return mapping
     try:
@@ -200,9 +213,14 @@ def _load_image_creators(base_url: str) -> dict[str, dict[str, str]]:
                     rel = url_text.split("/images/", 1)[1].strip().lstrip("/")
                 elif url_text.startswith(base_url.rstrip("/") + "/"):
                     rel = url_text.replace(base_url.rstrip("/") + "/", "", 1).strip().lstrip("/")
+                elif url_text in by_public_url:
+                    rel = by_public_url[url_text]
+                elif url_text in by_imgbed_url:
+                    rel = by_imgbed_url[url_text]
                 if not rel:
                     continue
                 mapping[rel] = {
+                    "creator_id": str(detail.get("key_id") or "").strip(),
                     "creator_email": creator_email,
                     "creator_name": creator_name,
                 }
@@ -211,12 +229,17 @@ def _load_image_creators(base_url: str) -> dict[str, dict[str, str]]:
     return mapping
 
 
-def delete_images(paths: list[str] | None = None, start_date: str = "", end_date: str = "", all_matching: bool = False) -> dict[str, int]:
+def delete_images(paths: list[str] | None = None, start_date: str = "", end_date: str = "", all_matching: bool = False, owner_id: str = "") -> dict[str, int]:
     root = config.images_dir.resolve()
+    allowed = {
+        str(item["path"])
+        for item in list_images("", start_date=start_date, end_date=end_date, owner_id=owner_id).get("items", [])
+    } if owner_id.strip() else set()
     targets = [
         str(item["path"])
         for item in image_storage_service.list_items("", start_date=start_date, end_date=end_date)
-    ] if all_matching else (paths or [])
+        if not owner_id.strip() or str(item["path"]) in allowed
+    ] if all_matching else [item for item in (paths or []) if not owner_id.strip() or item in allowed]
     removed = 0
     for item in targets:
         path = (root / item).resolve()

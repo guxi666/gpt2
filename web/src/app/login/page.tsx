@@ -164,15 +164,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative grid min-h-[calc(100vh-1rem)] w-full place-items-center overflow-hidden px-4 py-6">
-      <div
-        className="absolute inset-0 opacity-60"
-        style={{
-          backgroundImage:
-            "radial-gradient(#d6e4ff 1px, transparent 1px), linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.98))",
-          backgroundSize: "16px 16px, auto",
-          backgroundPosition: "0 0, 0 0",
-        }}
-      />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.94),_rgba(245,239,231,0.97)_42%,_rgba(240,235,227,1)_100%)]" />
       <HeaderActions className="fixed top-4 right-4 z-10" />
 
       <Card className="relative z-10 w-full max-w-[930px] overflow-hidden rounded-[34px] border-white/85 bg-white/95 shadow-[0_30px_120px_rgba(15,23,42,0.10)]">

@@ -187,8 +187,9 @@ def create_router(app_version: str) -> APIRouter:
 
     @router.get("/api/images")
     async def get_images(request: Request, start_date: str = "", end_date: str = "", authorization: str | None = Header(default=None)):
-        require_admin(authorization)
-        return list_images(resolve_image_base_url(request), start_date=start_date.strip(), end_date=end_date.strip())
+        identity = require_identity(authorization)
+        owner_id = "" if identity.get("role") == "admin" else str(identity.get("id") or "").strip()
+        return list_images(resolve_image_base_url(request), start_date=start_date.strip(), end_date=end_date.strip(), owner_id=owner_id)
 
     @router.get("/images/{image_path:path}", include_in_schema=False)
     async def get_image(image_path: str):
@@ -200,12 +201,13 @@ def create_router(app_version: str) -> APIRouter:
 
     @router.post("/api/images/delete")
     async def delete_images_endpoint(body: ImageDeleteRequest, authorization: str | None = Header(default=None)):
-        require_admin(authorization)
-        return delete_images(body.paths, start_date=body.start_date.strip(), end_date=body.end_date.strip(), all_matching=body.all_matching)
+        identity = require_identity(authorization)
+        owner_id = "" if identity.get("role") == "admin" else str(identity.get("id") or "").strip()
+        return delete_images(body.paths, start_date=body.start_date.strip(), end_date=body.end_date.strip(), all_matching=body.all_matching, owner_id=owner_id)
 
     @router.post("/api/images/download")
     async def download_images_endpoint(body: ImageDownloadRequest, authorization: str | None = Header(default=None)):
-        require_admin(authorization)
+        require_identity(authorization)
         buf = download_images_zip(body.paths)
         return StreamingResponse(
             buf,
@@ -215,7 +217,7 @@ def create_router(app_version: str) -> APIRouter:
 
     @router.get("/api/images/download/{image_path:path}")
     async def download_single_image_endpoint(image_path: str, authorization: str | None = Header(default=None)):
-        require_admin(authorization)
+        require_identity(authorization)
         return get_image_download_response(image_path)
 
     @router.get("/api/logs")

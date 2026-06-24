@@ -8,8 +8,8 @@ import { fetchAppMeta, type AppMeta } from "@/lib/api";
 const defaultAppMeta: AppMeta = {
   app_title: "GPT生图站",
   project_name: "GPT生图站",
-  top_left_logo_url: "",
-  site_logo_url: "",
+  top_left_logo_url: "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png",
+  site_logo_url: "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png",
   login_hero_image_url: "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png",
   agency_enabled: false,
   subscription_enabled: false,
@@ -58,6 +58,7 @@ export function useAppMeta() {
       document.head.appendChild(iconLink);
     }
     iconLink.href = href;
+
     let shortcutIconLink = document.querySelector("link[rel='shortcut icon']") as HTMLLinkElement | null;
     if (!shortcutIconLink) {
       shortcutIconLink = document.createElement("link");

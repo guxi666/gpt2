@@ -127,6 +127,7 @@ class ImageTaskService:
         client_task_id: str,
         prompt: str,
         model: str,
+        n: int,
         size: str | None,
         quality: str = "auto",
         base_url: str = "",
@@ -134,7 +135,7 @@ class ImageTaskService:
         payload = {
             "prompt": prompt,
             "model": model,
-            "n": 1,
+            "n": max(1, int(n or 1)),
             "size": size,
             "quality": quality,
             "response_format": "url",
@@ -277,10 +278,11 @@ class ImageTaskService:
             usage = result.get("usage")
             duration_ms = int((time.time() - started) * 1000)
             if mode == "generate":
+                success_count = len(data)
                 commerce_service.charge_usage(
                     dict(identity),
                     usage_type="image",
-                    amount_cents=int(config.get().get("image_price_cents") or 0),
+                    amount_cents=int(config.get().get("image_price_cents") or 0) * max(1, success_count),
                     note="image task balance charge",
                 )
             self._update_task(key, status=TASK_STATUS_SUCCESS, data=data, usage=usage, error="", duration_ms=duration_ms)

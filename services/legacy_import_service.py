@@ -135,6 +135,45 @@ def _apply_users(raw: Any) -> tuple[int, list[dict[str, str]]]:
     return imported, created_keys
 
 
+def _merge_legacy_users(auth_raw: Any, billing_raw: Any) -> list[dict[str, Any]]:
+    auth_items = auth_raw.get("items") if isinstance(auth_raw, dict) and isinstance(auth_raw.get("items"), list) else auth_raw if isinstance(auth_raw, list) else []
+    billing_items = billing_raw.get("users") if isinstance(billing_raw, dict) and isinstance(billing_raw.get("users"), list) else []
+    merged: dict[str, dict[str, Any]] = {}
+
+    for raw_user in auth_items:
+        if not isinstance(raw_user, dict):
+            continue
+        user_id = str(raw_user.get("id") or "").strip()
+        if not user_id:
+            continue
+        merged[user_id] = dict(raw_user)
+
+    for raw_user in billing_items:
+        if not isinstance(raw_user, dict):
+            continue
+        user_id = str(raw_user.get("id") or "").strip()
+        if not user_id:
+            continue
+        password_hash = str(raw_user.get("password_hash") or "").strip()
+        if not password_hash or password_hash == "local-user":
+            continue
+        current = merged.get(user_id) or {}
+        merged[user_id] = {
+            **current,
+            **raw_user,
+            "id": user_id,
+            "username": str(current.get("username") or raw_user.get("username") or raw_user.get("email") or "").strip(),
+            "name": str(current.get("name") or raw_user.get("name") or raw_user.get("email") or "").strip(),
+            "email": str(current.get("email") or raw_user.get("email") or "").strip(),
+            "password_hash": str(current.get("password_hash") or password_hash).strip(),
+            "enabled": bool(raw_user.get("enabled", current.get("enabled", True))),
+            "role": str(current.get("role") or "user").strip() or "user",
+            "role_id": str(current.get("role_id") or raw_user.get("role_id") or DEFAULT_ROLE_ID).strip() or DEFAULT_ROLE_ID,
+        }
+
+    return list(merged.values())
+
+
 def _apply_billing(raw: Any) -> int:
     obj = raw if isinstance(raw, dict) else {}
     users = obj.get("users") if isinstance(obj.get("users"), list) else []
@@ -176,7 +215,8 @@ def import_legacy(source_path: str) -> dict[str, Any]:
     documents = _read_legacy_documents(source)
     source_root = source.parent if source.is_file() else source
     roles_imported = _apply_roles(documents.get("rbac_roles"))
-    users_imported, created_keys = _apply_users(documents.get("auth_users"))
+    merged_users = _merge_legacy_users(documents.get("auth_users"), documents.get("billing"))
+    users_imported, created_keys = _apply_users(merged_users)
     billing_imported = _apply_billing(documents.get("billing"))
     billing_details = commerce_service.import_legacy_billing(documents.get("billing") or {})
     images_imported = _copy_legacy_images(source_root)

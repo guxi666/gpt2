@@ -26,7 +26,7 @@ def permission_key(method: str, path: str) -> str:
     return f"{str(method or '').strip().lower()}{str(path or '').strip()}"
 
 
-COMMON_USER_MENU_PATHS = ["/image", "/wallet", "/subscription", "/agency", "/profile"]
+COMMON_USER_MENU_PATHS = ["/image", "/wallet", "/subscription", "/agency", "/image-manager", "/profile"]
 
 COMMON_USER_API_PERMISSIONS = [
     permission_key("GET", "/v1/models"),
@@ -36,6 +36,10 @@ COMMON_USER_API_PERMISSIONS = [
     permission_key("POST", "/v1/responses"),
     permission_key("POST", "/v1/messages"),
     permission_key("GET", "/api/image-tasks"),
+    permission_key("GET", "/api/images"),
+    permission_key("POST", "/api/images/delete"),
+    permission_key("POST", "/api/images/download"),
+    permission_key("GET", "/api/images/download/{image_path:path}"),
     permission_key("POST", "/api/image-tasks/generations"),
     permission_key("POST", "/api/image-tasks/edits"),
     permission_key("POST", "/api/image-tasks/{task_id}/resume-poll"),
@@ -129,7 +133,8 @@ PERMISSION_MENUS = [
     {"id": "wallet", "label": "钱包充值", "path": "/wallet", "order": 2},
     {"id": "subscription", "label": "套餐订阅", "path": "/subscription", "order": 3},
     {"id": "agency", "label": "代理加盟", "path": "/agency", "order": 4},
-    {"id": "profile", "label": "个人资料", "path": "/profile", "order": 5},
+    {"id": "image-manager", "label": "图片库", "path": "/image-manager", "order": 5},
+    {"id": "profile", "label": "个人资料", "path": "/profile", "order": 6},
 ]
 
 
@@ -141,6 +146,10 @@ PERMISSION_APIS = [
     {"key": permission_key("POST", "/v1/responses"), "method": "POST", "path": "/v1/responses", "label": "图片 Responses", "group": "普通权限"},
     {"key": permission_key("POST", "/v1/messages"), "method": "POST", "path": "/v1/messages", "label": "图片 Messages", "group": "普通权限"},
     {"key": permission_key("GET", "/api/image-tasks"), "method": "GET", "path": "/api/image-tasks", "label": "查看图片任务", "group": "普通权限"},
+    {"key": permission_key("GET", "/api/images"), "method": "GET", "path": "/api/images", "label": "查看图片库", "group": "普通权限"},
+    {"key": permission_key("POST", "/api/images/delete"), "method": "POST", "path": "/api/images/delete", "label": "删除自己的图片", "group": "普通权限"},
+    {"key": permission_key("POST", "/api/images/download"), "method": "POST", "path": "/api/images/download", "label": "批量下载图片", "group": "普通权限"},
+    {"key": permission_key("GET", "/api/images/download/{image_path:path}"), "method": "GET", "path": "/api/images/download/{image_path:path}", "label": "下载单张图片", "group": "普通权限"},
     {"key": permission_key("POST", "/api/image-tasks/generations"), "method": "POST", "path": "/api/image-tasks/generations", "label": "创建文生图任务", "group": "普通权限"},
     {"key": permission_key("POST", "/api/image-tasks/edits"), "method": "POST", "path": "/api/image-tasks/edits", "label": "创建图生图任务", "group": "普通权限"},
     {"key": permission_key("POST", "/api/image-tasks/{task_id}/resume-poll"), "method": "POST", "path": "/api/image-tasks/{task_id}/resume-poll", "label": "继续轮询任务", "group": "普通权限"},

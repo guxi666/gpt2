@@ -55,6 +55,7 @@ const userNavItems = [
   { href: "/wallet", label: "钱包充值" },
   { href: "/subscription", label: "订阅套餐" },
   { href: "/agency", label: "代理加盟" },
+  { href: "/image-manager", label: "图片库" },
   { href: "/profile", label: "个人资料" },
 ];
 

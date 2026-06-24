@@ -53,10 +53,10 @@ const IMAGE_TIER_STORAGE_KEY = "chatgpt2api:image_last_tier";
 const IMAGE_QUALITY_STORAGE_KEY = "chatgpt2api:image_last_quality";
 const IMAGE_MODEL_STORAGE_KEY = "chatgpt2api:image_last_model";
 const IMAGE_COUNT_STORAGE_KEY = "chatgpt2api:image_last_count";
-const DEFAULT_IMAGE_RATIO = "1:1";
+const DEFAULT_IMAGE_RATIO = "16:9";
 const DEFAULT_IMAGE_TIER = "1k";
-const DEFAULT_IMAGE_WIDTH = "1024";
-const DEFAULT_IMAGE_HEIGHT = "1024";
+const DEFAULT_IMAGE_WIDTH = "1920";
+const DEFAULT_IMAGE_HEIGHT = "1088";
 const DEFAULT_IMAGE_QUALITY = "high";
 const DEFAULT_IMAGE_COUNT = "1";
 const SCROLL_POSITIONS_STORAGE_KEY = "chatgpt2api:image_scroll_positions";
@@ -1217,7 +1217,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
             const taskId = image.taskId || image.id;
             return activeTurn.mode === "edit"
               ? createImageEditTask(taskId, referenceFiles, activeTurn.prompt, activeTurn.model, activeTurn.size, activeTurn.quality)
-              : createImageGenerationTask(taskId, activeTurn.prompt, activeTurn.model, activeTurn.size, activeTurn.quality);
+              : createImageGenerationTask(taskId, activeTurn.prompt, activeTurn.model, activeTurn.size, activeTurn.quality, activeTurn.count);
           }),
         );
         await applyTasks(submitted);
@@ -1269,7 +1269,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
                 missingImages.map((image) =>
                   activeTurn.mode === "edit"
                     ? createImageEditTask(image.taskId || image.id, referenceFiles, activeTurn.prompt, activeTurn.model, activeTurn.size, activeTurn.quality)
-                    : createImageGenerationTask(image.taskId || image.id, activeTurn.prompt, activeTurn.model, activeTurn.size, activeTurn.quality),
+                    : createImageGenerationTask(image.taskId || image.id, activeTurn.prompt, activeTurn.model, activeTurn.size, activeTurn.quality, 1),
                 ),
               );
               if (resubmitted.length > 0) {
