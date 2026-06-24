@@ -739,7 +739,7 @@ function ImageManagerContent({ isAdmin }: { isAdmin: boolean }) {
 }
 
 export default function ImageManagerPage() {
-  const { isCheckingAuth, session } = useAuthGuard(undefined, "/image-manager");
+  const { isCheckingAuth, session } = useAuthGuard();
   if (isCheckingAuth || !session) {
     return <div className="flex min-h-[40vh] items-center justify-center"><LoaderCircle className="size-5 animate-spin text-stone-400" /></div>;
   }

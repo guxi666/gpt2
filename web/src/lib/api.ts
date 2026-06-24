@@ -660,6 +660,8 @@ export type LoginResponse = {
   role_name?: string;
   subject_id: string;
   name: string;
+  username?: string;
+  email?: string;
   menu_paths?: string[];
   api_permissions?: string[];
   key?: string;

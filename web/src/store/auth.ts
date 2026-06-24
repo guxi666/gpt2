@@ -11,6 +11,8 @@ export type StoredAuthSession = {
   roleName?: string;
   subjectId: string;
   name: string;
+  username?: string;
+  email?: string;
   menuPaths: string[];
   apiPermissions: string[];
 };
@@ -59,6 +61,8 @@ function normalizeSession(value: unknown, fallbackKey = ""): StoredAuthSession |
     roleName: String(candidate.roleName || "").trim(),
     subjectId: String(candidate.subjectId || "").trim(),
     name: String(candidate.name || "").trim(),
+    username: String(candidate.username || "").trim(),
+    email: String(candidate.email || "").trim(),
     menuPaths: normalizeStringList(candidate.menuPaths),
     apiPermissions: normalizeStringList(candidate.apiPermissions),
   };

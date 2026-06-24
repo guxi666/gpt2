@@ -103,10 +103,12 @@ class AuthService:
 
     @staticmethod
     def _public_item(item: dict[str, object]) -> dict[str, object]:
+        username = str(item.get("username") or "").strip()
         return {
             "id": item.get("id"),
             "name": item.get("name"),
-            "username": item.get("username"),
+            "username": username,
+            "email": username if "@" in username else "",
             "role": item.get("role"),
             "role_id": item.get("role_id"),
             "role_name": item.get("role_name"),

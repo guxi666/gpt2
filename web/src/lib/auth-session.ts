@@ -23,6 +23,8 @@ export async function getValidatedAuthSession(): Promise<StoredAuthSession | nul
       roleName: String(data.role_name || "").trim(),
       subjectId: data.subject_id,
       name: data.name,
+      username: String(data.username || "").trim(),
+      email: String(data.email || "").trim(),
       menuPaths: Array.isArray(data.menu_paths) ? data.menu_paths : [],
       apiPermissions: Array.isArray(data.api_permissions) ? data.api_permissions : [],
     };

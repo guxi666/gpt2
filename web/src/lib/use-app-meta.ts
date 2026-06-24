@@ -56,22 +56,24 @@ export function useAppMeta() {
     document.title = appMeta.project_name || defaultAppMeta.project_name;
 
     const href = appMeta.site_logo_url || appMeta.top_left_logo_url || "/favicon.ico";
+    const iconLinks = Array.from(document.querySelectorAll("link[rel*='icon']")) as HTMLLinkElement[];
 
-    let iconLink = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-    if (!iconLink) {
-      iconLink = document.createElement("link");
+    if (iconLinks.length === 0) {
+      const iconLink = document.createElement("link");
       iconLink.rel = "icon";
+      iconLink.href = href;
       document.head.appendChild(iconLink);
-    }
-    iconLink.href = href;
 
-    let shortcutIconLink = document.querySelector("link[rel='shortcut icon']") as HTMLLinkElement | null;
-    if (!shortcutIconLink) {
-      shortcutIconLink = document.createElement("link");
+      const shortcutIconLink = document.createElement("link");
       shortcutIconLink.rel = "shortcut icon";
+      shortcutIconLink.href = href;
       document.head.appendChild(shortcutIconLink);
+      return;
     }
-    shortcutIconLink.href = href;
+
+    for (const iconLink of iconLinks) {
+      iconLink.href = href;
+    }
   }, [appMeta, pathname]);
 
   return appMeta;

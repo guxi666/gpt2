@@ -69,6 +69,8 @@ export default function LoginPage() {
     role_name?: string;
     subject_id: string;
     name: string;
+    username?: string;
+    email?: string;
     menu_paths?: string[];
     api_permissions?: string[];
   }, fallbackKey: string) => {
@@ -79,6 +81,8 @@ export default function LoginPage() {
       roleName: String(data.role_name || "").trim(),
       subjectId: data.subject_id,
       name: data.name,
+      username: String(data.username || "").trim(),
+      email: String(data.email || "").trim(),
       menuPaths: Array.isArray(data.menu_paths) ? data.menu_paths : [],
       apiPermissions: Array.isArray(data.api_permissions) ? data.api_permissions : [],
     };
@@ -155,7 +159,7 @@ export default function LoginPage() {
   }
 
   const allowedDomains = providers?.allowed_email_domains || [];
-  const sharedLogo = appMeta.top_left_logo_url || appMeta.site_logo_url || "";
+  const sharedLogo = appMeta.site_logo_url || appMeta.top_left_logo_url || "";
   const brandTitle = appMeta.app_title || appMeta.project_name || "GPT生图站";
   const projectTitle = appMeta.project_name || brandTitle;
   const loginHeroImage =
