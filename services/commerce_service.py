@@ -693,7 +693,7 @@ class CommerceService:
             raise ValueError("amount is invalid")
         identity_data = _sanitize_identity(identity)
         profile = self.ensure_profile(identity)
-        out_trade_no = f"cg2a{_now().strftime('%Y%m%d%H%M%S')}{secrets.token_hex(4)}"
+        out_trade_no = f"pay_{_now().strftime('%Y%m%d%H%M%S')}{secrets.token_hex(4)}"
         pay_type = (pay_type or "alipay").strip().lower() or "alipay"
         params = {
             "pid": config.pid,

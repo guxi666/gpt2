@@ -56,11 +56,79 @@ function statusBadgeVariant(status?: string) {
 }
 
 function orderTypeLabel(order: PayOrder) {
-  return order.order_kind || order.type || "-";
+  switch (String(order.order_kind || order.type || "").trim().toLowerCase()) {
+    case "recharge":
+      return "钱包充值";
+    case "image_usage":
+      return "单次生图";
+    case "chat_usage":
+      return "单次对话";
+    case "admin_adjust":
+      return "管理员调整";
+    case "signup_bonus":
+      return "注册赠送";
+    case "agency_join":
+      return "代理开通";
+    case "agency_upgrade":
+      return "代理升级";
+    case "subscription_monthly":
+      return "包月套餐";
+    case "subscription_quarterly":
+      return "包季套餐";
+    case "subscription_yearly":
+      return "包年套餐";
+    default:
+      return order.order_kind || order.type || "-";
+  }
 }
 
 function orderPayTypeLabel(order: PayOrder) {
-  return order.pay_type || order.provider || "-";
+  switch (String(order.pay_type || order.provider || "").trim().toLowerCase()) {
+    case "alipay":
+      return "支付宝";
+    case "wxpay":
+      return "微信";
+    case "balance":
+      return "余额";
+    case "bonus":
+      return "赠送";
+    default:
+      return order.pay_type || order.provider || "-";
+  }
+}
+
+function orderStatusLabel(status?: string) {
+  switch (String(status || "").trim().toLowerCase()) {
+    case "paid":
+      return "已支付";
+    case "pending":
+      return "待支付";
+    case "failed":
+      return "失败";
+    default:
+      return status || "-";
+  }
+}
+
+function orderNoLabel(order: PayOrder) {
+  return order.out_trade_no || order.id || "-";
+}
+
+function payTypeOptionLabel(value: string) {
+  switch (String(value || "").trim().toLowerCase()) {
+    case "alipay":
+      return "支付宝";
+    case "wxpay":
+      return "微信";
+    case "balance":
+      return "余额";
+    case "paypal":
+      return "PayPal";
+    case "usdt":
+      return "USDT";
+    default:
+      return value;
+  }
 }
 
 function UserWalletPage() {
@@ -131,7 +199,7 @@ function UserWalletPage() {
               <SelectTrigger className="h-10 rounded-xl border-stone-200 bg-white"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(channels.length > 0 ? channels : ["alipay"]).map((item) => (
-                  <SelectItem key={item} value={item}>{item}</SelectItem>
+                  <SelectItem key={item} value={item}>{payTypeOptionLabel(item)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -192,7 +260,7 @@ function UserWalletPage() {
                 <div key={item.id} className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm">
                   <div className="font-medium text-stone-900">{orderTypeLabel(item)}</div>
                   <div className="mt-1 text-stone-500">金额：￥{item.amount_yuan || centsToYuan(item.amount_cents)}</div>
-                  <div className="text-stone-500">状态：{item.status}</div>
+                  <div className="text-stone-500">状态：{orderStatusLabel(item.status)}</div>
                   <div className="text-stone-500">创建时间：{formatDateTime(item.created_at)}</div>
                 </div>
               ))}
@@ -331,12 +399,12 @@ function AdminWalletPage() {
                 <tbody>
                   {filteredOrders.map((item) => (
                     <tr key={item.id} className="border-b border-stone-100">
-                      <td className="px-4 py-3 font-mono text-xs text-stone-700">{item.out_trade_no || item.id}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-stone-700">{orderNoLabel(item)}</td>
                       <td className="px-4 py-3 text-stone-700">{item.user_display || item.user_id || "-"}</td>
                       <td className="px-4 py-3 text-stone-900">￥{item.amount_yuan || centsToYuan(item.amount_cents)}</td>
                       <td className="px-4 py-3 text-stone-700">{orderTypeLabel(item)}</td>
                       <td className="px-4 py-3 text-stone-700">{orderPayTypeLabel(item)}</td>
-                      <td className="px-4 py-3"><Badge variant={statusBadgeVariant(item.status)} className="rounded-md">{item.status || "-"}</Badge></td>
+                      <td className="px-4 py-3"><Badge variant={statusBadgeVariant(item.status)} className="rounded-md">{orderStatusLabel(item.status)}</Badge></td>
                       <td className="px-4 py-3 text-stone-700">{formatDateTime(item.paid_at)}</td>
                       <td className="px-4 py-3 text-stone-700">{formatDateTime(item.created_at)}</td>
                     </tr>

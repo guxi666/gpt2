@@ -379,6 +379,11 @@ class ImageStorageService:
         item = self._load_clean_index().get(safe_rel, {})
         if item.get("webdav"):
             return WebDAVClient(self.settings()).get(safe_rel)
+        imgbed_url = _clean(item.get("imgbed_url"))
+        if imgbed_url:
+            response = requests.get(imgbed_url, timeout=30)
+            if response.status_code >= 200 and response.status_code < 300:
+                return bytes(response.content)
         raise HTTPException(status_code=404, detail="image not found")
 
     def exists(self, rel: str) -> bool:
@@ -388,7 +393,7 @@ class ImageStorageService:
         if _local_image_path(safe_rel).is_file():
             return True
         item = self._load_clean_index().get(safe_rel, {})
-        return bool(item.get("webdav"))
+        return bool(item.get("webdav")) or bool(_clean(item.get("imgbed_url")))
 
     def has_local(self, rel: str) -> bool:
         safe_rel = _safe_relative_path(rel)
@@ -432,11 +437,18 @@ class ImageStorageService:
                     continue
                 local = _local_image_path(rel).is_file()
                 webdav = bool(item.get("webdav"))
-                if not local and not webdav:
+                imgbed_url = _clean(item.get("imgbed_url"))
+                if not local and not webdav and not imgbed_url:
                     indexed.pop(rel, None)
                     changed = True
                     continue
-                storage = "both" if local and webdav else ("webdav" if webdav else "local")
+                storage = "imgbed"
+                if local and webdav:
+                    storage = "both"
+                elif webdav:
+                    storage = "webdav"
+                elif local:
+                    storage = "local"
                 if item.get("local") != local or item.get("storage") != storage:
                     item = {
                         **item,
