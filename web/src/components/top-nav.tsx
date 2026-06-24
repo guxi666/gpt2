@@ -212,8 +212,12 @@ export function TopNav() {
               href={getDefaultRouteForSession(session)}
               className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-950 transition hover:bg-stone-50"
             >
-              {appMeta.top_left_logo_url ? (
-                <img src={appMeta.top_left_logo_url} alt="" className="size-7 rounded-full object-cover" />
+              {appMeta.top_left_logo_url || appMeta.site_logo_url ? (
+                <img
+                  src={appMeta.top_left_logo_url || appMeta.site_logo_url}
+                  alt=""
+                  className="size-7 rounded-full object-cover"
+                />
               ) : (
                 <span className="flex size-7 items-center justify-center rounded-full bg-stone-950 text-white text-xs font-bold">
                   GPT

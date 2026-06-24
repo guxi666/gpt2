@@ -5,12 +5,15 @@ import { usePathname } from "next/navigation";
 
 import { fetchAppMeta, type AppMeta } from "@/lib/api";
 
+const DEFAULT_LOGIN_HERO_IMAGE =
+  "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png";
+
 const defaultAppMeta: AppMeta = {
   app_title: "GPT生图站",
   project_name: "GPT生图站",
-  top_left_logo_url: "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png",
-  site_logo_url: "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png",
-  login_hero_image_url: "https://img.fw45.com/images/2026/05/13/1778631918_55e0eba1fe0100683c92fabbbfd61acf.png",
+  top_left_logo_url: "",
+  site_logo_url: "",
+  login_hero_image_url: DEFAULT_LOGIN_HERO_IMAGE,
   agency_enabled: false,
   subscription_enabled: false,
 };
@@ -21,21 +24,24 @@ export function useAppMeta() {
 
   useEffect(() => {
     let active = true;
+
     const load = async () => {
       try {
         const data = await fetchAppMeta();
-        if (active) {
-          setAppMeta({
-            ...defaultAppMeta,
-            ...data,
-          });
+        if (!active) {
+          return;
         }
+        setAppMeta({
+          ...defaultAppMeta,
+          ...data,
+        });
       } catch {
         if (active) {
           setAppMeta(defaultAppMeta);
         }
       }
     };
+
     void load();
     return () => {
       active = false;
@@ -46,11 +52,11 @@ export function useAppMeta() {
     if (typeof document === "undefined") {
       return;
     }
+
     document.title = appMeta.project_name || defaultAppMeta.project_name;
-    const href = appMeta.site_logo_url || appMeta.top_left_logo_url || "";
-    if (!href) {
-      return;
-    }
+
+    const href = appMeta.site_logo_url || appMeta.top_left_logo_url || "/favicon.ico";
+
     let iconLink = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
     if (!iconLink) {
       iconLink = document.createElement("link");

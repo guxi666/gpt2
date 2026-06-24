@@ -155,7 +155,7 @@ export default function LoginPage() {
   }
 
   const allowedDomains = providers?.allowed_email_domains || [];
-  const sharedLogo = appMeta.site_logo_url || appMeta.top_left_logo_url || "";
+  const sharedLogo = appMeta.top_left_logo_url || appMeta.site_logo_url || "";
   const brandTitle = appMeta.app_title || appMeta.project_name || "GPT生图站";
   const projectTitle = appMeta.project_name || brandTitle;
   const loginHeroImage =

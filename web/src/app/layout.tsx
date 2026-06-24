@@ -9,6 +9,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "GPT生图站",
   description: "GPT image generation dashboard",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export const viewport: Viewport = {

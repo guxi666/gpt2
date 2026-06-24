@@ -197,6 +197,11 @@ class EmailAuthService:
                 menu_paths=role.get("menu_paths") if isinstance(role.get("menu_paths"), list) else [],
                 api_permissions=role.get("api_permissions") if isinstance(role.get("api_permissions"), list) else [],
             )
+            if not raw_key:
+                rotated = auth_service.rotate_key(str(auth_item.get("id") or ""), role="user")
+                if rotated is None:
+                    raise ValueError("failed to issue login key")
+                auth_item, raw_key = rotated
             user["last_login_at"] = _now_iso()
             user["updated_at"] = _now_iso()
             self._save_users(users)
