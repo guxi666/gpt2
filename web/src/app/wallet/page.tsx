@@ -55,6 +55,10 @@ function statusBadgeVariant(status?: string) {
   }
 }
 
+function pageTitle(role: "admin" | "user") {
+  return role === "admin" ? "钱包充值" : "钱包充值";
+}
+
 function orderTypeLabel(order: PayOrder) {
   switch (String(order.order_kind || order.type || "").trim().toLowerCase()) {
     case "recharge":

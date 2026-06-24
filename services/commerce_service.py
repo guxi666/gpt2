@@ -215,6 +215,7 @@ class CommerceService:
             orders = self._load_orders()
             orders.append({
                 "id": secrets.token_hex(8),
+                "out_trade_no": self._new_order_no(),
                 "record_type": "transaction",
                 "type": "signup_bonus",
                 "order_kind": "signup_bonus",
@@ -255,6 +256,7 @@ class CommerceService:
             orders = self._load_orders()
             orders.append({
                 "id": secrets.token_hex(8),
+                "out_trade_no": self._new_order_no(),
                 "record_type": "transaction",
                 "type": f"{usage_type}_usage",
                 "order_kind": f"{usage_type}_usage",
@@ -564,6 +566,7 @@ class CommerceService:
                 orders = self._load_orders()
                 orders.append({
                     "id": secrets.token_hex(8),
+                    "out_trade_no": self._new_order_no(),
                     "record_type": "transaction",
                     "type": "admin_adjust",
                     "order_kind": "admin_adjust",
@@ -824,6 +827,10 @@ class CommerceService:
     @staticmethod
     def _new_invite_code() -> str:
         return secrets.token_hex(4)
+
+    @staticmethod
+    def _new_order_no() -> str:
+        return f"pay_{_now().strftime('%Y%m%d%H%M%S')}{secrets.token_hex(4)}"
 
     @staticmethod
     def _yipay_sign(params: dict[str, str], key: str) -> str:
