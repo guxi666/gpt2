@@ -96,6 +96,10 @@ function parseImageSize(size: string) {
 const activeConversationQueueIds = new Set<string>();
 let pollAbortController: AbortController | null = null;
 
+function getScopedActiveConversationStorageKey(subjectId: string) {
+  return `${ACTIVE_CONVERSATION_STORAGE_KEY}:${subjectId}`;
+}
+
 function getResultsDistanceFromBottom(element: HTMLElement) {
   return element.scrollHeight - element.scrollTop - element.clientHeight;
 }
@@ -306,7 +310,7 @@ function deriveTurnStatus(turn: ImageTurn): Pick<ImageTurn, "status" | "error"> 
   return { status: "success", error: undefined };
 }
 
-async function syncConversationImageTasks(items: ImageConversation[]) {
+async function syncConversationImageTasks(items: ImageConversation[], subjectId: string) {
   const taskIds = Array.from(
     new Set(
       items.flatMap((conversation) =>
@@ -376,12 +380,12 @@ async function syncConversationImageTasks(items: ImageConversation[]) {
   });
 
   if (changed) {
-    await saveImageConversations(normalized);
+    await saveImageConversations(normalized, subjectId);
   }
   return normalized;
 }
 
-async function recoverConversationHistory(items: ImageConversation[]) {
+async function recoverConversationHistory(items: ImageConversation[], subjectId: string) {
   let changed = false;
   const normalized = items.map((conversation) => {
     const turns = conversation.turns.map((turn) => {
@@ -425,14 +429,14 @@ async function recoverConversationHistory(items: ImageConversation[]) {
   });
 
   if (changed) {
-    await saveImageConversations(normalized);
+    await saveImageConversations(normalized, subjectId);
   }
 
-  return syncConversationImageTasks(normalized);
+  return syncConversationImageTasks(normalized, subjectId);
 }
 
 
-function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
+function ImagePageContent({ isAdmin, subjectId }: { isAdmin: boolean; subjectId: string }) {
   const didLoadQuotaRef = useRef(false);
   const conversationsRef = useRef<ImageConversation[]>([]);
   const loadCancelledRef = useRef(false);
@@ -603,8 +607,8 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
       setImageQuality((storedQuality && ["auto", "low", "medium", "high"].includes(storedQuality)) ? storedQuality : DEFAULT_IMAGE_QUALITY);
       setImageCount(storedCount ? clampImageCount(storedCount) : DEFAULT_IMAGE_COUNT);
 
-      const items = await listImageConversations();
-      const normalizedItems = await recoverConversationHistory(items);
+      const items = await listImageConversations(subjectId);
+      const normalizedItems = await recoverConversationHistory(items, subjectId);
       if (loadCancelledRef.current) {
         return;
       }
@@ -612,7 +616,9 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
       conversationsRef.current = normalizedItems;
       setConversations(normalizedItems);
       const storedConversationId =
-        typeof window !== "undefined" ? window.localStorage.getItem(ACTIVE_CONVERSATION_STORAGE_KEY) : null;
+        typeof window !== "undefined"
+          ? window.localStorage.getItem(getScopedActiveConversationStorageKey(subjectId))
+          : null;
       const nextSelectedConversationId =
         (storedConversationId && normalizedItems.some((conversation) => conversation.id === storedConversationId)
           ? storedConversationId
@@ -627,6 +633,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
       }
     }
   }, [
+    subjectId,
     setImageRatio,
     setImageTier,
     setImageWidth,
@@ -828,11 +835,11 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
     }
 
     if (selectedConversationId) {
-      window.localStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, selectedConversationId);
+      window.localStorage.setItem(getScopedActiveConversationStorageKey(subjectId), selectedConversationId);
     } else {
-      window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+      window.localStorage.removeItem(getScopedActiveConversationStorageKey(subjectId));
     }
-  }, [selectedConversationId]);
+  }, [selectedConversationId, subjectId]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -864,7 +871,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
     ]);
     conversationsRef.current = nextConversations;
     setConversations(nextConversations);
-    await saveImageConversation(conversation);
+    await saveImageConversation(conversation, subjectId);
   };
 
   const updateConversation = useCallback(
@@ -882,10 +889,10 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
       conversationsRef.current = nextConversations;
       setConversations(nextConversations);
       if (options.persist !== false) {
-        await saveImageConversation(nextConversation);
+        await saveImageConversation(nextConversation, subjectId);
       }
     },
-    [],
+    [subjectId],
   );
 
   const clearComposerInputs = useCallback(() => {
@@ -920,11 +927,11 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
     }
 
     try {
-      await deleteImageConversation(id);
+      await deleteImageConversation(id, subjectId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "删除会话失败";
       toast.error(message);
-      const items = await listImageConversations();
+      const items = await listImageConversations(subjectId);
       conversationsRef.current = items;
       setConversations(items);
     }
@@ -971,7 +978,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
 
   const handleClearHistory = async () => {
     try {
-      await clearImageConversations();
+      await clearImageConversations(subjectId);
       conversationsRef.current = [];
       setConversations([]);
       setSelectedConversationId(null);
@@ -990,7 +997,7 @@ function ImagePageContent({ isAdmin }: { isAdmin: boolean }) {
     conversationsRef.current = sortImageConversations(nextConversations);
     setConversations(conversationsRef.current);
     try {
-      await renameImageConversation(id, title);
+      await renameImageConversation(id, title, subjectId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "重命名失败";
       toast.error(message);
@@ -1769,5 +1776,5 @@ export default function ImagePage() {
     );
   }
 
-  return <ImagePageContent isAdmin={session.role === "admin"} />;
+  return <ImagePageContent isAdmin={session.role === "admin"} subjectId={session.subjectId} />;
 }
