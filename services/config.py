@@ -112,6 +112,31 @@ DEFAULT_PRICING = {
     "chat_price_cents": 8,
 }
 
+DEFAULT_SUBSCRIPTION = {
+    "subscription_heading": "选择适合你的订阅套餐",
+    "subscription_subheading": "在有效期内无限生图，不扣余额",
+    "subscription_safety_text": "余额不足时可先去钱包充值后再购买套餐",
+    "subscription_agent_hint": "套餐到期后恢复按次扣费",
+    "subscription_monthly_name": "包月套餐",
+    "subscription_monthly_desc": "适合轻量创作用户，按月续费更灵活",
+    "subscription_monthly_badge": "灵活",
+    "subscription_monthly_price_cents": 6888,
+    "subscription_monthly_price_note": "按月自动续费，可随时取消",
+    "subscription_monthly_features": "无限生图\n高峰稳定排队\n专属客服支持",
+    "subscription_quarterly_name": "包季套餐",
+    "subscription_quarterly_desc": "适合持续创作者，整体更划算",
+    "subscription_quarterly_badge": "推荐",
+    "subscription_quarterly_price_cents": 18888,
+    "subscription_quarterly_price_note": "相比包月最高可省11%",
+    "subscription_quarterly_features": "无限生图\n优先出图通道\n专属客服支持",
+    "subscription_yearly_name": "包年套餐",
+    "subscription_yearly_desc": "适合高频商业使用，年度成本最低",
+    "subscription_yearly_badge": "最划算",
+    "subscription_yearly_price_cents": 58888,
+    "subscription_yearly_price_note": "相比包月最高可省22%",
+    "subscription_yearly_features": "无限生图\n全年优先保障\n专属客服支持",
+}
+
 
 def _normalize_bool(value: object, default: bool = False) -> bool:
     if isinstance(value, str):
@@ -585,6 +610,11 @@ class ConfigStore:
         data["register_gift_image_count"] = _normalize_positive_int(self.data.get("register_gift_image_count"), int(DEFAULT_PRICING["register_gift_image_count"]), 0)
         data["image_price_cents"] = _normalize_positive_int(self.data.get("image_price_cents"), int(DEFAULT_PRICING["image_price_cents"]), 0)
         data["chat_price_cents"] = _normalize_positive_int(self.data.get("chat_price_cents"), int(DEFAULT_PRICING["chat_price_cents"]), 0)
+        for key, value in DEFAULT_SUBSCRIPTION.items():
+            if key.endswith("_price_cents"):
+                data[key] = _normalize_positive_int(self.data.get(key), int(value), 0)
+            else:
+                data[key] = str(self.data.get(key) or value).strip() or str(value)
         data["email_smtp_enabled"] = _normalize_bool(self.data.get("email_smtp_enabled"), DEFAULT_EMAIL_SMTP["email_smtp_enabled"])
         data["email_smtp_host"] = str(self.data.get("email_smtp_host") or DEFAULT_EMAIL_SMTP["email_smtp_host"]).strip()
         data["email_smtp_port"] = _normalize_positive_int(self.data.get("email_smtp_port"), int(DEFAULT_EMAIL_SMTP["email_smtp_port"]), 1)

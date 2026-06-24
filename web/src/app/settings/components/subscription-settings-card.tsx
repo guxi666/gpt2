@@ -10,6 +10,22 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useSettingsStore } from "../store";
 
+function centsToYuanDisplay(value: unknown) {
+  const cents = Number(value || 0);
+  if (!Number.isFinite(cents)) {
+    return "";
+  }
+  return (cents / 100).toFixed(2);
+}
+
+function yuanToCents(value: string) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) {
+    return 0;
+  }
+  return Math.max(0, Math.round(amount * 100));
+}
+
 export function SubscriptionSettingsCard() {
   const config = useSettingsStore((state) => state.config);
   const isSavingConfig = useSettingsStore((state) => state.isSavingConfig);
@@ -69,7 +85,7 @@ export function SubscriptionSettingsCard() {
           <Input
             value={String(config?.subscription_agent_hint || "")}
             onChange={(event) => setConfigField("subscription_agent_hint", event.target.value)}
-            placeholder="代理提示文案"
+            placeholder="套餐提示文案"
             className="h-10 rounded-xl border-stone-200 bg-white"
           />
         </div>
@@ -86,9 +102,9 @@ export function SubscriptionSettingsCard() {
                   className="h-10 rounded-xl border-stone-200 bg-white"
                 />
                 <Input
-                  value={String(config?.[`subscription_${key}_price_cents`] || "")}
-                  onChange={(event) => setConfigField(`subscription_${key}_price_cents`, event.target.value)}
-                  placeholder="价格（分）"
+                  value={centsToYuanDisplay(config?.[`subscription_${key}_price_cents`])}
+                  onChange={(event) => setConfigField(`subscription_${key}_price_cents`, yuanToCents(event.target.value))}
+                  placeholder="价格（元）"
                   className="h-10 rounded-xl border-stone-200 bg-white"
                 />
                 <Input
@@ -102,6 +118,12 @@ export function SubscriptionSettingsCard() {
                   onChange={(event) => setConfigField(`subscription_${key}_price_note`, event.target.value)}
                   placeholder="价格备注"
                   className="h-10 rounded-xl border-stone-200 bg-white"
+                />
+                <Textarea
+                  value={String(config?.[`subscription_${key}_desc`] || "")}
+                  onChange={(event) => setConfigField(`subscription_${key}_desc`, event.target.value)}
+                  placeholder="套餐描述"
+                  className="min-h-20 rounded-xl border-stone-200 bg-white text-xs"
                 />
                 <Textarea
                   value={String(config?.[`subscription_${key}_features`] || "")}
