@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -106,6 +106,7 @@ function UserWalletPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const isSyncingReturnRef = useRef(false);
 
   const load = async () => {
     const [walletData, ordersData] = await Promise.all([fetchWallet(), fetchPayOrders(100)]);
@@ -137,6 +138,43 @@ function UserWalletPage() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || isSyncingReturnRef.current) {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const outTradeNo = params.get("out_trade_no");
+    const tradeStatus = params.get("trade_status");
+    const sign = params.get("sign");
+    if (!outTradeNo || !tradeStatus || !sign) {
+      return;
+    }
+
+    isSyncingReturnRef.current = true;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/pay/yipay/notify?${params.toString()}`, {
+          method: "GET",
+          credentials: "include",
+        });
+        const data = await response.json().catch(() => ({ ok: false }));
+        if (!response.ok) {
+          throw new Error(typeof data?.detail?.error === "string" ? data.detail.error : "支付回调校验失败");
+        }
+        if (data.ok) {
+          toast.success("支付结果已同步");
+          await load();
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "支付结果同步失败");
+      } finally {
+        const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+        window.history.replaceState({}, "", cleanUrl);
+        isSyncingReturnRef.current = false;
+      }
+    })();
   }, []);
 
   if (isLoading) {
