@@ -967,8 +967,14 @@ class AccountService:
         基于本地缓存做初筛，然后通过 fetch_remote_info 做远程验证（token 有效性、配额等）。
         限制最大尝试次数防止 token rotation 导致无限循环。
         """
-        max_attempts = 20  # 防止无限循环
         attempted_tokens: set[str] = set()
+        ready_tokens = self._list_ready_candidate_tokens(
+            excluded_tokens=attempted_tokens,
+            plan_type=plan_type,
+            source_type=source_type,
+            plan_types=plan_types,
+        )
+        max_attempts = max(20, len(ready_tokens))
         for _attempt in range(max_attempts):
             access_token = self._acquire_next_candidate_token(
                 excluded_tokens=attempted_tokens,
