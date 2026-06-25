@@ -245,9 +245,8 @@ function AccountsPageContent() {
     try {
       const data = await fetchModels();
       setAvailableModels(Array.isArray(data.data) ? data.data : []);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "加载模型列表失败";
-      toast.error(message);
+    } catch {
+      setAvailableModels([]);
     } finally {
       setIsLoadingModels(false);
     }
