@@ -277,8 +277,8 @@ class ImageTaskService:
                 raise error
             usage = result.get("usage")
             duration_ms = int((time.time() - started) * 1000)
-            if mode == "generate":
-                success_count = len(data)
+            success_count = len(data)
+            if mode in {"generate", "edit"}:
                 commerce_service.charge_usage(
                     dict(identity),
                     usage_type="image",
