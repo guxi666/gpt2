@@ -103,12 +103,28 @@ def is_connection_timeout_error(message: str) -> bool:
     )
 
 
+def is_connection_unavailable_error(message: str) -> bool:
+    """检测上游连接不可达错误（如 curl 7），通常适合快速重试并切换账号。"""
+    text = str(message or "").lower()
+    return (
+        "curl: (7)" in text
+        or "failed to connect to" in text
+        or "could not connect to server" in text
+        or "port 443 after" in text
+        or "connection refused" in text
+        or "network is unreachable" in text
+        or "no route to host" in text
+    )
+
+
 def image_stream_error_message(message: str) -> str:
     text = str(message or "")
     if is_token_invalid_error(text):
         return "image generation failed"
     if is_tls_connection_error(text):
         return "upstream image connection failed, please retry later"
+    if is_connection_unavailable_error(text):
+        return "upstream image service temporarily unreachable, please retry later"
     if is_connection_timeout_error(text):
         return "upstream connection timed out, please retry later"
     return text or "image generation failed"
@@ -1435,6 +1451,39 @@ def _generate_single_image(
                     })
                     time.sleep(wait_secs)
                     continue
+                logger.warning({
+                    "event": "image_stream_conn_timeout_switch_account",
+                    "request_token": token,
+                    "account_email": account_email,
+                    "retry_count": conn_timeout_retry_count,
+                    "index": index,
+                    "error": last_error[:200],
+                })
+                continue
+            if not emitted_for_token and is_connection_unavailable_error(last_error):
+                conn_timeout_retry_count += 1
+                if conn_timeout_retry_count <= MAX_CONN_TIMEOUT_RETRIES:
+                    wait_secs = min(2.0 * conn_timeout_retry_count, 6.0)
+                    logger.warning({
+                        "event": "image_stream_conn_unavailable_retry",
+                        "request_token": token,
+                        "account_email": account_email,
+                        "retry_count": conn_timeout_retry_count,
+                        "index": index,
+                        "wait_secs": wait_secs,
+                        "error": last_error[:200],
+                    })
+                    time.sleep(wait_secs)
+                    continue
+                logger.warning({
+                    "event": "image_stream_conn_unavailable_switch_account",
+                    "request_token": token,
+                    "account_email": account_email,
+                    "retry_count": conn_timeout_retry_count,
+                    "index": index,
+                    "error": last_error[:200],
+                })
+                continue
             raise ImageGenerationError(image_stream_error_message(last_error), account_email=account_email, conversation_id="") from exc
 
 
