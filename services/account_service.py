@@ -985,7 +985,40 @@ class AccountService:
             attempted_tokens.add(access_token)
             try:
                 account = self.fetch_remote_info(access_token, "get_available_access_token")
-            except Exception:
+            except Exception as exc:
+                cached_account = self.get_account(access_token) or {}
+                error_text = str(exc or "")
+                transient_validation_error = any(
+                    marker in error_text.lower()
+                    for marker in (
+                        "cloudflare",
+                        "cf-ray",
+                        "origin web server returned",
+                        "connection timed out",
+                        "operation timed out",
+                        "curl: (28)",
+                        "curl: (35)",
+                        "tls connect error",
+                        "upstream image connection failed",
+                        "upstream connection timed out",
+                    )
+                )
+                if (
+                    transient_validation_error
+                    and self._is_image_account_available(cached_account)
+                    and self._account_matches_plan_type(cached_account, plan_type)
+                    and self._account_matches_any_plan_type(cached_account, plan_types)
+                    and self._account_matches_source_type(cached_account, source_type)
+                ):
+                    log_service.add(
+                        LOG_TYPE_ACCOUNT,
+                        "取号远程校验失败，回退本地缓存继续生图",
+                        {
+                            "token": anonymize_token(access_token),
+                            "error": error_text[:300],
+                        },
+                    )
+                    return access_token
                 self.release_image_slot(access_token)
                 continue
             # fetch_remote_info 内部可能因 token rotation 导致 access_token 变化，
